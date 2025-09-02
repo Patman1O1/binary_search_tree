@@ -408,69 +408,6 @@ namespace adt {
             return std::make_pair(curr, true);
         }
 
-        constexpr std::pair<_Node*, bool> __insert(const_reference value, _Node** p_curr = nullptr) noexcept {
-            _Node* prev = nullptr;
-
-            // If the address of the current node points to nullptr...
-            if (p_curr == nullptr || *p_curr == nullptr) {
-                // Assign the address of the current node to the root node
-                p_curr = &this->root;
-            } else if (*p_curr != this->root) {
-                // Otherwise, if the current node is not the root node, 
-                // then assign `prev` to the current node's parent
-                prev = (*p_curr)->parent;
-            }
-
-            // For each node in the BST...
-            while (*p_curr != nullptr) {
-                // If the current node is NOT the root node and the current node is a left child and 
-                // has a parent with a value less than `value`, or the current node is a right child
-                // and has a parent with a value greater than `value`...
-                if ((*p_curr != this->root) && 
-                    ((*p_curr == (*p_curr)->parent->left && (*p_curr)->parent->value < value) ||
-                    (*p_curr == (*p_curr)->parent->right && (*p_curr)->parent->value > value))) {
-                    // Traverse back up the BST
-                    p_curr = &(*p_curr)->parent;
-                } else if (value < (*p_curr)->value) {
-                    // Otherwise, if `value` is less than the current node's value, then
-                    // visit the current node's left child
-                    prev = *p_curr;
-                    p_curr = &(*p_curr)->left;
-                } else if (value > (*p_curr)->value) {
-                    // Otherwise, if `value` is greater than the current node's value,
-                    // then visit the current node's right child
-                    prev = *p_curr;
-                    p_curr = &(*p_curr)->right;
-                } else {
-                    // Otherwise, return the current node and a boolean set to false
-                    return std::make_pair(*p_curr, false);
-                }
-            }
-
-            // Create a new node at the current node
-            *p_curr = this->_construct_node(value, prev, nullptr, nullptr);
-
-            // If the node being inserted is the root...
-            if (prev == nullptr) {
-                // Point the minimum and maximum nodes to the current node
-                this->min_node = this->max_node = *p_curr;
-            } else if (value < this->min_node->value) {
-                // Otherwise, if `value` is less than the current minimum value in the BST,
-                // then point the minimum node to the current node
-                this->min_node = *p_curr;
-            } else if (value > this->max_node->value) {
-                // Otherwise, if `value` is greater than the current maximum value in the BST 
-                // (i.e `inorder_end`'s value), then point the maximum node to the current
-                // node
-                this->max_node = *p_curr;
-            }
-
-            // Update the BST size
-            this->sz++;
-
-            return std::make_pair(*p_curr, true);
-        }
-
         constexpr void _transplant(_Node* const dst, _Node* const src) noexcept {
             // If the destination node is the root node...
             if (dst->parent == nullptr) {
@@ -1595,7 +1532,7 @@ namespace adt {
                 return *this;
             }
             
-            /* ---------------------------------------------Methods------------------------------------------------- */
+            /* -------------------------------------------Methods--------------------------------------------------- */
             [[nodiscard]] constexpr bst_traversals get_traversal() const noexcept { return this->traversal; }
         
         };
@@ -1902,7 +1839,7 @@ namespace adt {
                 return const_reverse_iterator(this->node, this->bst_p);
             }
 
-            /* ---------------------------------------------Methods------------------------------------------------- */
+            /* -------------------------------------------Methods--------------------------------------------------- */
             [[nodiscard]] constexpr bst_traversals get_traversal() const noexcept { return this->traversal; }
         
         };
@@ -1914,6 +1851,9 @@ namespace adt {
             friend class binary_search_tree;
         
         protected:
+            /* --------------------------------------------Fields--------------------------------------------------- */
+            const binary_search_tree* bst_p;
+
             /* -----------------------------------------Constructors------------------------------------------------ */
             constexpr node_type(const _Node* node) noexcept {
                 if (node == nullptr) {
@@ -1936,11 +1876,10 @@ namespace adt {
 
             constexpr node_type(const node_type& other) noexcept = delete;
 
-            constexpr node_type(node_type&& other) noexcept 
-                : binary_tree<T, Allocator>::node_type(std::forward<node_type>(other)) {}
+            constexpr node_type(node_type&& other) noexcept : binary_tree<T, Allocator>::node_type(std::move(other)) {}
 
             constexpr explicit node_type(const_iterator pos) noexcept {
-                if (pos.node == nullptr) {
+                if (pos.node == nullptr || pos.bst_p != pos.bst_p) {
                     this->node = nullptr;
                     return;
                 }
@@ -1958,7 +1897,7 @@ namespace adt {
 
             constexpr node_type& operator=(const_iterator pos) noexcept {
                 this->_destroy();
-                if (pos.node == nullptr) {
+                if (pos.node == nullptr || pos.bst_p != pos.bst_p) {
                     this->node = nullptr;
                     return *this;
                 }
@@ -2079,7 +2018,6 @@ namespace adt {
             return *this;
         }
         
-        // Need to write tests
         constexpr binary_search_tree& operator=(std::initializer_list<value_type> rhs) noexcept {
             this->_clear();
             
@@ -2189,27 +2127,38 @@ namespace adt {
 
         constexpr iterator insert(iterator pos, const_reference value) noexcept
             requires(std::is_copy_constructible_v<value_type> && !std::is_same_v<iterator, const_iterator>) {
-        
-            _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, pos_node).first);
+            if (pos.bst_p != this) {
+                return iterator(this->_insert(value, this->root).first);
+            }
+
+            return iterator(this->_insert(value, const_cast<_Node*>(pos.node)).first);
         }
 
         constexpr iterator insert(iterator pos, value_type&& value) noexcept
             requires(std::is_move_constructible_v<value_type> && !std::is_same_v<iterator, const_iterator>) {
-            _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, pos_node).first);
+            if (pos.bst_p != this) {
+                return iterator(this->_insert(value, this->root).first);
+            }
+
+            return iterator(this->_insert(value, const_cast<_Node*>(pos.node)).first);
         }
 
         constexpr iterator insert(const_iterator pos, const_reference value) noexcept
             requires(std::is_copy_constructible_v<value_type>) {
-            _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, pos_node).first);
+            if (pos.bst_p != this) {
+                return iterator(this->_insert(value, this->root).first);
+            }
+
+            return iterator(this->_insert(value, const_cast<_Node*>(pos.node)).first);
         }
 
         constexpr iterator insert(const_iterator pos, value_type&& value) noexcept
             requires(std::is_move_constructible_v<value_type>) {
-            _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, pos_node).first);
+            if (pos.bst_p != this) {
+                return iterator(this->_insert(value, this->root).first);
+            }
+
+            return iterator(this->_insert(value, const_cast<_Node*>(pos.node)).first);
         }
 
         template<std::input_iterator InputIt>
@@ -2253,15 +2202,13 @@ namespace adt {
         constexpr iterator insert(const_iterator pos, node_type&& node) noexcept {
             // If the iterator is not at a valid position within the BST or 
             // the node handle does not contain a valid node...
-            if (pos.node == nullptr || node.empty()) {
-                // Return a non-constant iterator at nullptr and a false boolean value 
-                // indicating nothing was inserted
-                return iterator(nullptr);
+            if (pos.node == nullptr || pos.bst_p != this || node.empty()) {
+                // Return an iterator at nullptr indicating nothing was inserted
+                return iterator();
             }
 
             // Attempt to insert the node_handle's node into the BST at the current position
-            _Node* pos_node = const_cast<_Node*>(pos.node);
-            std::pair pair = this->_insert(node.node->value, pos_node);
+            std::pair pair = this->_insert(node.node->value, const_cast<_Node*>(pos.node));
 
             // If the node was successfully inserted...
             if (pair.second) {
@@ -2292,7 +2239,7 @@ namespace adt {
         constexpr iterator emplace_hint(const_iterator pos, Args... args) noexcept
             requires(std::is_constructible_v<value_type, Args...>) {
             // If the iterator is not in a valid position within the BST...
-            if (pos.node == nullptr) {
+            if (pos.node == nullptr || pos.bst_p != this) {
                 // Emplace the arguments starting at the root node
                 return this->emplace(std::forward<value_type>(args)...).first;
             }
@@ -2304,6 +2251,10 @@ namespace adt {
 
         constexpr iterator erase(iterator pos) noexcept
             requires(!std::is_same_v<iterator, const_iterator>) {
+            if (pos.bst_p != this) {
+                return iterator();
+            }
+
             return iterator(this->_erase(pos.node));
         }
 
