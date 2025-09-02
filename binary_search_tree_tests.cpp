@@ -38,10 +38,12 @@ using const_reverse_iterator = binary_search_tree::const_reverse_iterator;
 
 using node_type = binary_search_tree::node_type;
 
-/* ---------------------------------------------Functions---------------------------------------------------- */
-
+template<std::input_iterator Iterator = iterator, class NodeType = node_type>
+using insert_return_type = binary_search_tree::template insert_return_type<Iterator, NodeType>;
 
 /* ---------------------------------------------Variables---------------------------------------------------- */
+constexpr std::initializer_list<value_type> empty_init;
+
 constexpr std::initializer_list<value_type> single_init = {101};
 
 constexpr std::initializer_list<value_type> filled_init = {
@@ -83,9 +85,15 @@ constexpr std::initializer_list<value_type> filled_init = {
 	38
 };
 
-constexpr std::initializer_list<value_type> empty_init = {};
+constexpr size_type empty_size = 0;
+
+constexpr size_type single_size = 1;
 
 constexpr size_type filled_size = filled_init.size();
+
+constexpr std::array<value_type, empty_size> empty_matcher;
+
+constexpr std::array<value_type, single_size> single_matcher = {101};
 
 constexpr std::array<value_type, filled_size> filled_preorder_matcher = {
 	50,
@@ -204,11 +212,11 @@ constexpr std::array<value_type, filled_size> filled_postorder_matcher = {
 	50
 };
 
-constexpr std::array<value_type, 0> empty_matcher = {};
-
 constexpr value_type insertion_value = 0;
 
-constexpr size_type insertion_size = filled_size + 1;
+constexpr value_type query_value = 46;
+
+std::set<value_type> insertion_matcher;
 
 binary_search_tree bst_single = single_init;
 
@@ -223,6 +231,24 @@ iterator bst_it;
 const_reverse_iterator bst_crit;
 
 reverse_iterator bst_rit;
+
+node_type bst_node;
+
+insert_return_type<iterator, node_type> bst_insert_ret_val;
+
+/* ---------------------------------------------Functions---------------------------------------------------- */
+void set_insertion_matcher(const std::initializer_list<value_type>& init_list) noexcept {
+	insertion_matcher = init_list;
+	insertion_matcher.insert(insertion_value);
+}
+
+void set_insertion_matcher(const std::initializer_list<value_type>& init_list, 
+						   std::initializer_list<value_type>&& values) noexcept {
+	insertion_matcher = init_list;
+	for (auto value : values) {
+		insertion_matcher.insert(value);
+	}
+}
 
 /* --------------------------------Constant Iterator Constructors Tests-------------------------------------- */
 TEST(binary_search_tree__const_iterator__constructors, default_constructor) {
@@ -3194,18 +3220,6 @@ TEST(binary_search_tree__node_type__constructors, nullptr_constructor) {
 	EXPECT_EQ(node, nullptr);
 }
 
-TEST(binary_search_tree__node_type__constructors, copy_constructor) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_iterator pos(bst);
-	adt::binary_search_tree<int>::node_type src_node(pos), dst_node(src_node);
-	adt::binary_search_tree<int>::value_type src_val, dst_val;
-
-	EXPECT_NO_THROW(src_val = *src_node);
-	EXPECT_NO_THROW(dst_val = *dst_node);
-
-	EXPECT_EQ(src_val, dst_val);
-}
-
 TEST(binary_search_tree__node_type__constructors, move_constructor__empty) {
 	adt::binary_search_tree<int>::node_type src, dst = std::move(src);
 
@@ -3241,88 +3255,6 @@ TEST(binary_search_tree__node_type__destructor, destructor) {
 }
 
 /* ----------------------------------Node Type Overloaded Operators Tests------------------------------------ */
-TEST(binary_search_tree__node_type__operators, assignment_operator__node_type__empty_to_empty) {
-	adt::binary_search_tree<int>::node_type src, dst;
-
-	EXPECT_NO_THROW(dst = src);
-	EXPECT_EQ(src, nullptr);
-	EXPECT_EQ(dst, nullptr);
-}
-
-TEST(binary_search_tree__node_type__operators, assignment_operator__node_type__empty_to_filled) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_iterator pos(bst);
-	adt::binary_search_tree<int>::node_type src(pos), dst;
-	adt::binary_search_tree<int>::value_type value;
-
-	EXPECT_NO_THROW(value = *src);
-	EXPECT_EQ(value, 101);
-	EXPECT_EQ(dst, nullptr);
-
-	EXPECT_NO_THROW(dst = src);
-
-	EXPECT_NO_THROW(value = *src);
-	EXPECT_EQ(value, 101);
-	EXPECT_NO_THROW(value = *dst);
-	EXPECT_EQ(value, 101);
-}
-
-TEST(binary_search_tree__node_type__operators, assignment_operator__node_type__filled_to_filled) {
-	adt::binary_search_tree<int> bst = {101, 69};
-	adt::binary_search_tree<int>::const_iterator pos(bst);
-	adt::binary_search_tree<int>::node_type src(pos), dst(pos + 1);
-	adt::binary_search_tree<int>::value_type value;
-
-	EXPECT_NO_THROW(value = *src);
-	EXPECT_EQ(value, 69);
-	EXPECT_NO_THROW(value = *dst);
-	EXPECT_EQ(value, 101);
-
-	EXPECT_NO_THROW(dst = src);
-
-	EXPECT_NO_THROW(value = *src);
-	EXPECT_EQ(value, 69);
-	EXPECT_NO_THROW(value = *dst);
-	EXPECT_EQ(value, 69);
-}
-
-TEST(binary_search_tree__node_type__operators, assignment_operator__node_type__filled_to_empty) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_iterator pos(bst);
-	adt::binary_search_tree<int>::node_type src, dst(pos);
-	adt::binary_search_tree<int>::value_type value;
-
-	EXPECT_EQ(src, nullptr);
-	EXPECT_NO_THROW(value = *dst);
-	EXPECT_EQ(value, 101);
-
-	EXPECT_NO_THROW(dst = src);
-
-	EXPECT_EQ(src, nullptr);
-	EXPECT_EQ(dst, nullptr);
-}
-
-TEST(binary_search_tree__node_type__operators, assignment_operator__nullptr__empty) {
-	adt::binary_search_tree<int>::node_type node;
-
-	EXPECT_NO_THROW(node = nullptr);
-	EXPECT_EQ(node, nullptr);
-}
-
-TEST(binary_search_tree__node_type__operators, assignment_operator__nullptr__filled) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_iterator pos(bst);
-	adt::binary_search_tree<int>::node_type node(pos);
-	adt::binary_search_tree<int>::value_type value;
-
-	EXPECT_NO_THROW(value = *node);
-	EXPECT_EQ(value, 101);
-
-	EXPECT_NO_THROW(node = nullptr);
-
-	EXPECT_EQ(node, nullptr);
-}
-
 TEST(binary_search_tree__node_type__operators, move_operator__empty_to_empty) {
 	adt::binary_search_tree<int>::node_type src, dst;
 
@@ -3736,7 +3668,7 @@ TEST(binary_search_tree__destructor, destructor__filled) {
 }
 
 /* -------------------------------Binary Search Tree Overloaded Operators Tests------------------------------ */
-TEST(binary_search_tree__operators, assignment_operator__self_assignment) {
+TEST(binary_search_tree__operators, assignment_operator__bst__self_assignment) {
 	std::initializer_list<int> matcher = {10, 20, 30, 100, 150, 200, 300};
 	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
 	adt::binary_search_tree<int>& bst_ref = bst;
@@ -3751,7 +3683,7 @@ TEST(binary_search_tree__operators, assignment_operator__self_assignment) {
 	EXPECT_EQ(bst_ref, matcher);
 }
 
-TEST(binary_search_tree__operators, assignment_operator__empty_to_empty) {
+TEST(binary_search_tree__operators, assignment_operator__bst__empty_to_empty) {
 	std::initializer_list<int> matcher = {};
 	adt::binary_search_tree<int> src, dst;
 
@@ -3770,7 +3702,7 @@ TEST(binary_search_tree__operators, assignment_operator__empty_to_empty) {
 	EXPECT_EQ(dst, matcher);
 }
 
-TEST(binary_search_tree__operators, assignment_operator__empty_to_filled) {
+TEST(binary_search_tree__operators, assignment_operator__bst__empty_to_filled) {
 	std::initializer_list<int> matcher = {10, 20, 30, 100, 150, 200, 300};
 	adt::binary_search_tree<int> src = {100, 20, 10, 30, 200, 150, 300};
 	adt::binary_search_tree<int> dst;
@@ -3792,7 +3724,7 @@ TEST(binary_search_tree__operators, assignment_operator__empty_to_filled) {
 	EXPECT_EQ(dst, matcher);
 }
 
-TEST(binary_search_tree__operators, assignment_operator__filled_to_filled) {
+TEST(binary_search_tree__operators, assignment_operator__bst__filled_to_filled) {
 	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5, 6, 7, 9};
 	adt::binary_search_tree<int> src = {4, 2, 1, 3, 6, 5, 7, 0, 9};
 	adt::binary_search_tree<int> dst = {100, 20, 10, 30, 200, 150, 300};
@@ -3814,7 +3746,7 @@ TEST(binary_search_tree__operators, assignment_operator__filled_to_filled) {
 	EXPECT_EQ(dst, matcher);
 }
 
-TEST(binary_search_tree__operators, assignment_operator__filled_to_empty) {
+TEST(binary_search_tree__operators, assignment_operator__bst__filled_to_empty) {
 	std::initializer_list<int> matcher = {};
 	adt::binary_search_tree<int> src;
 	adt::binary_search_tree<int> dst = {100, 20, 10, 30, 200, 150, 300};
@@ -3834,6 +3766,42 @@ TEST(binary_search_tree__operators, assignment_operator__filled_to_empty) {
 
 	EXPECT_EQ(src, matcher);
 	EXPECT_EQ(dst, matcher);
+}
+
+TEST(binary_search_tree__operators, assignment_operator__initializer_list__empty_to_empty) {
+	binary_search_tree bst;
+
+	bst = empty_init;
+
+	EXPECT_EQ(bst.size(), 0);
+	EXPECT_EQ(bst, empty_matcher);
+}
+
+TEST(binary_search_tree__operators, assignment_operator__initializer_list__empty_to_filled) {
+	binary_search_tree bst;
+
+	bst = filled_init;
+
+	EXPECT_EQ(bst.size(), filled_inorder_matcher.size());
+	EXPECT_EQ(bst, filled_inorder_matcher);
+}
+
+TEST(binary_search_tree__operators, assignment_operator__initializer_list__filled_to_empty) {
+	binary_search_tree bst = filled_init;
+
+	bst = empty_init;
+
+	EXPECT_EQ(bst.size(), 0);
+	EXPECT_EQ(bst, empty_matcher);
+}
+
+TEST(binary_search_tree__operators, assignment_operator__initializer_list__filled_to_filled) {
+	binary_search_tree bst = single_init;
+
+	bst = filled_init;
+
+	EXPECT_EQ(bst.size(), filled_inorder_matcher.size());
+	EXPECT_EQ(bst, filled_inorder_matcher);
 }
 
 TEST(binary_search_tree__operators, move_operator__self_assignment) {
@@ -4589,156 +4557,28 @@ TEST(binary_search_tree__methods, insert__lref__empty_bst) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__lref__single_node__left_insert) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_reference lref = 102;
-	std::initializer_list<int> matcher = {101, 102};
-	
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 1);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 2);
-
-	EXPECT_EQ(bst, matcher);
-	EXPECT_EQ(*pair.first, 102);
-	EXPECT_TRUE(pair.second);
-}
-
-TEST(binary_search_tree__methods, insert__lref__single_node__right_insert) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_reference lref = 100;
-	std::initializer_list<int> matcher = {100, 101};
-	
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 1);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 2);
-
-	EXPECT_EQ(*pair.first, 100);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::const_reference lref = 0;
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*pair.first, 0);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::const_reference lref = 6;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*pair.first, 6);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::const_reference lref = 11;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 11);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
 TEST(binary_search_tree__methods, insert__lref__filled_bst) {
 	binary_search_tree bst = filled_init;
 	const_reference lref = insertion_value;
 
 	std::pair<iterator, bool> pair = bst.insert(lref);
+	set_insertion_matcher(filled_init);
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), insertion_size);
-
-
-
-	EXPECT_EQ(*pair.first, 29);
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
+	
+	EXPECT_NE(pair.first, bst.end());
+	EXPECT_EQ(*pair.first, insertion_value);
 	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
 }
 
-
 TEST(binary_search_tree__methods, insert__lref__failed_insertion) {
-	adt::binary_search_tree<int> bst = {101};
-	adt::binary_search_tree<int>::const_reference lref = 101;
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(lref);
+	binary_search_tree bst = single_init;
+	const_reference lref = *single_init.begin();
+	std::pair<iterator, bool> pair = bst.insert(lref);
 
 	EXPECT_FALSE(pair.second);
-	EXPECT_EQ(*pair.first, 101);
+	EXPECT_EQ(*pair.first, *single_init.begin());
 }
 
 TEST(binary_search_tree__methods, insert__rref__empty_bst) {
@@ -4793,94 +4633,18 @@ TEST(binary_search_tree__methods, insert__rref__single_node__right_insert) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__rref__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::value_type&& rref = 0;
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__rref__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::pair<iterator, bool> pair = bst.insert(std::forward<value_type>(std::remove_cvref_t<value_type>(insertion_value)));
+	
+	set_insertion_matcher(filled_init);
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*pair.first, 0);
+	EXPECT_NE(pair.first, bst.end());
+	EXPECT_EQ(*pair.first, insertion_value);
 	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::value_type&& rref = 6;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*pair.first, 6);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::value_type&& rref = 11;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 11);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(rref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.insert(std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
 }
 
 TEST(binary_search_tree__methods, insert__rref__failed_insertion) {
@@ -4944,94 +4708,20 @@ TEST(binary_search_tree__methods, insert__lref_and_iterator__single_node__right_
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__lref_and_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::const_reference lref = 0;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 4;
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__lref_and_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	const_reference lref = insertion_value;
+	iterator pos = bst.begin();
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	std::advance(pos, filled_size - 1);
+	set_insertion_matcher(filled_init);
+	iterator it = bst.insert(pos, lref);
 
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 0);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::const_reference lref = 6;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 4;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 6);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::const_reference lref = 11;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 8;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 11);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 8;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 6;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
+	EXPECT_NE(it, bst.end());
+	EXPECT_EQ(*it, insertion_value);
 }
 
 TEST(binary_search_tree__methods, insert__rref_and_iterator__empty_bst) {
@@ -5086,94 +4776,19 @@ TEST(binary_search_tree__methods, insert__rref_and_iterator__single_node__right_
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__rref_and_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::value_type&& rref = 0;
-	adt::binary_search_tree<int>::iterator pos = bst.begin();
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__rref_and_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	iterator pos = bst.begin();
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	std::advance(pos, filled_size - 1);
+	set_insertion_matcher(filled_init);
+	iterator it = bst.insert(pos, std::forward<value_type>(std::remove_cvref_t<value_type>(insertion_value)));
 
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 0);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::value_type&& rref = 6;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 4;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 6);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::value_type&& rref = 11;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 8;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 11);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 8;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	adt::binary_search_tree<int>::iterator pos = bst.begin() + 6;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
+	EXPECT_NE(it, bst.end());
+	EXPECT_EQ(*it, insertion_value);
 }
 
 TEST(binary_search_tree__methods, insert__lref_and_const_iterator__empty_bst) {
@@ -5228,94 +4843,20 @@ TEST(binary_search_tree__methods, insert__lref_and_const_iterator__single_node__
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__lref_and_const_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::const_reference lref = 0;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 4;
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__lref_and_const_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	const_reference lref = insertion_value;
+	const_iterator pos = bst.cbegin();
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	std::advance(pos, filled_size - 1);
+	set_insertion_matcher(filled_init);
+	iterator it = bst.insert(pos, lref);
 
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 0);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_const_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::const_reference lref = 6;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 4;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 6);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_const_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::const_reference lref = 11;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 11);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_const_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__lref_and_const_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::const_reference lref = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 6;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, lref);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
+	EXPECT_NE(it, bst.cend());
+	EXPECT_EQ(*it, insertion_value);
 }
 
 TEST(binary_search_tree__methods, insert__rref_and_const_iterator__empty_bst) {
@@ -5370,94 +4911,19 @@ TEST(binary_search_tree__methods, insert__rref_and_const_iterator__single_node__
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__rref_and_const_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::value_type&& rref = 0;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin();
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__rref_and_const_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	const_iterator pos = bst.cbegin();
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	std::advance(pos, filled_size - 1);
+	set_insertion_matcher(filled_init);
+	iterator it = bst.insert(pos, std::forward<value_type>(std::remove_cvref_t<value_type>(insertion_value)));
 
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 0);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_const_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::value_type&& rref = 6;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 4;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 6);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_const_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::value_type&& rref = 11;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 11);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_const_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__rref_and_const_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::value_type&& rref = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 6;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	adt::binary_search_tree<int>::iterator it = bst.insert(pos, std::forward<int>(rref));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
+	EXPECT_NE(it, bst.end());
+	EXPECT_EQ(*it, insertion_value);
 }
 
 TEST(binary_search_tree__methods, insert__iterators__valid_iterators) {
@@ -5507,84 +4973,13 @@ TEST(binary_search_tree__methods, insert__initializer_list__single_node) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__initializer_list__left_linked_list) {
-	adt::binary_search_tree<int> bst;
-	std::initializer_list<int> values = {5, 4, 3, 2, 1};
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert__initializer_list__filled_bst) {
+	binary_search_tree bst;
 
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
+	bst.insert(filled_init);
 
-	bst.insert(values);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__initializer_list__right_linked_list) {
-	adt::binary_search_tree<int> bst;
-	std::initializer_list<int> values = {1, 2, 3, 4, 5};
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5};
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	bst.insert(values);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__initializer_list__left_skewed_bst) {
-	adt::binary_search_tree<int> bst;
-	std::initializer_list<int> values = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 12, 15, 20, 22, 25};
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	bst.insert(values);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__initializer_list__right_skewed_bst) {
-	adt::binary_search_tree<int> bst;
-	std::initializer_list<int> values = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	std::initializer_list<int> matcher = {25, 28, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	bst.insert(values);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__initializer_list__balanced_bst) {
-	adt::binary_search_tree<int> bst;
-	std::initializer_list<int> values = {100, 20, 10, 30, 200, 150, 300};
-	std::initializer_list<int> matcher = {10, 20, 30, 100, 150, 200, 300};
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	bst.insert(values);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	EXPECT_EQ(bst, matcher);
+	EXPECT_EQ(bst, filled_inorder_matcher);
+	EXPECT_EQ(bst.size(), filled_size);
 }
 
 TEST(binary_search_tree__methods, insert__node_handle__empty_bst) {
@@ -5675,184 +5070,61 @@ TEST(binary_search_tree__methods, insert__node_handle__single_node__right_insert
 	EXPECT_EQ(dst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__node_handle__left_linked_list) {
-	typedef adt::binary_search_tree<int> bst_t;
+TEST(binary_search_tree__methods, insert__node_handle__filled_bst) {
+	binary_search_tree src = {insertion_value};
+	binary_search_tree dst = filled_init;
 
-	bst_t src = {0};
-	bst_t dst = {5, 4, 3, 2, 1};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+	bst_node = src.cbegin();
+	set_insertion_matcher(filled_init);
+	bst_insert_ret_val = dst.insert(std::forward<node_type>(bst_node));
 
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
+	EXPECT_EQ(dst, insertion_matcher);
+	EXPECT_EQ(dst.size(), insertion_matcher.size());
 
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
+	EXPECT_TRUE(bst_node.empty());
+	EXPECT_EQ(bst_node, nullptr);
 
-	EXPECT_TRUE(insert_return_value.inserted);
-	EXPECT_TRUE(insert_return_value.node.empty());
-	EXPECT_THROW(static_cast<void>(*insert_return_value.node), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(bst_node.value()), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(*bst_node), std::runtime_error);
 
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 0);
+	EXPECT_TRUE(bst_insert_ret_val.inserted);
 
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 6);
-	EXPECT_EQ(dst, matcher);
-}
+	EXPECT_TRUE(bst_insert_ret_val.node.empty());
+	EXPECT_EQ(bst_insert_ret_val.node, nullptr);
 
-TEST(binary_search_tree__methods, insert__node_handle__right_linked_list) {
-	typedef adt::binary_search_tree<int> bst_t;
+	EXPECT_THROW(static_cast<void>(bst_insert_ret_val.node.value()), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(*bst_insert_ret_val.node), std::runtime_error);
 
-	bst_t src = {6};
-	bst_t dst = {1, 2, 3, 4, 5};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_TRUE(insert_return_value.inserted);
-	EXPECT_TRUE(insert_return_value.node.empty());
-	EXPECT_THROW(static_cast<void>(*insert_return_value.node), std::runtime_error);
-
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 6);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 6);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle__left_skewed_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {11};
-	bst_t dst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_TRUE(insert_return_value.inserted);
-	EXPECT_TRUE(insert_return_value.node.empty());
-	EXPECT_THROW(static_cast<void>(*insert_return_value.node), std::runtime_error);
-
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 11);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 10);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle__right_skewed_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {29};
-	bst_t dst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_TRUE(insert_return_value.inserted);
-	EXPECT_TRUE(insert_return_value.node.empty());
-	EXPECT_THROW(static_cast<void>(*insert_return_value.node), std::runtime_error);
-
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 29);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 10);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle__balanced_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {29};
-	bst_t dst = {100, 20, 10, 30, 200, 150, 300};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_TRUE(insert_return_value.inserted);
-	
-	EXPECT_TRUE(insert_return_value.node.empty());
-	EXPECT_THROW(static_cast<void>(*insert_return_value.node), std::runtime_error);
-
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 29);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 8);
-	EXPECT_EQ(dst, matcher);
+	EXPECT_NE(bst_insert_ret_val.position, dst.end());
+	EXPECT_EQ(*bst_insert_ret_val.position, insertion_value);
 }
 
 TEST(binary_search_tree__methods, insert__node_handle__failed_insertion) {
-	typedef adt::binary_search_tree<int> bst_t;
+	binary_search_tree src = single_init;
+	binary_search_tree dst = single_init;
+	bst_node = src.cbegin();
 
-	bst_t src = {101};
-	bst_t dst = {101};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {101};
+	bst_insert_ret_val = dst.insert(std::move(bst_node));
 
-	EXPECT_FALSE(src.empty());
-	EXPECT_EQ(src.size(), 1);
-	EXPECT_EQ(src, matcher);
+	EXPECT_TRUE(bst_node.empty());
+	EXPECT_EQ(bst_node, nullptr);
 
-	bst_t::insert_return_type<bst_t::iterator, bst_t::node_type> insert_return_value = dst.insert(
-		std::forward<bst_t::node_type>(node)
-	);
+	EXPECT_THROW(static_cast<void>(bst_node.value()), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(*bst_node), std::runtime_error);
 
-	EXPECT_FALSE(node.empty());
-	EXPECT_NE(node, nullptr);
-	EXPECT_EQ(node.value(), 101);
-	EXPECT_EQ(*node, 101);
+	EXPECT_FALSE(bst_insert_ret_val.inserted);
 
-	EXPECT_FALSE(insert_return_value.inserted);
+	EXPECT_FALSE(bst_insert_ret_val.node.empty());
+	EXPECT_NE(bst_insert_ret_val.node, nullptr);
 
-	EXPECT_FALSE(insert_return_value.node.empty());
-	EXPECT_EQ(*insert_return_value.node, 101);
+	EXPECT_EQ(bst_insert_ret_val.node.value(), single_matcher[0]);
+	EXPECT_EQ(*bst_insert_ret_val.node, single_matcher[0]);
 
-	EXPECT_NE(insert_return_value.position, nullptr);
-	EXPECT_EQ(*insert_return_value.position, 101);
+	EXPECT_EQ(bst_insert_ret_val.position, dst.begin());
+	EXPECT_EQ(*bst_insert_ret_val.position, single_matcher[0]);
 
-	EXPECT_FALSE(dst.empty());
+	EXPECT_EQ(dst, single_matcher);
 	EXPECT_EQ(dst.size(), 1);
-	EXPECT_EQ(dst, matcher);
 }
 
 TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__single_node__left_insert) {
@@ -5897,119 +5169,23 @@ TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__single
 	EXPECT_EQ(dst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__left_linked_list) {
-	typedef adt::binary_search_tree<int> bst_t;
+TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__filled_bst) {
+	binary_search_tree src = {insertion_value};
+	binary_search_tree dst = filled_init;
+	
+	bst_cit = src.cbegin();
+	bst_node = bst_cit;
+	set_insertion_matcher(filled_init);
+	iterator it = dst.insert(dst.cbegin(), std::forward<node_type>(bst_node));
 
-	bst_t src = {0};
-	bst_t dst = {5, 4, 3, 2, 1};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+	EXPECT_NE(it, dst.cend());
+	EXPECT_NE(it, bst_cit);
 
-	bst_t::iterator it = dst.insert(dst.cbegin() + 4, std::forward<bst_t::node_type>(node));
+	EXPECT_TRUE(bst_node.empty());
+	EXPECT_EQ(bst_node, nullptr);
 
-	EXPECT_NE(it, nullptr);
-	EXPECT_EQ(*it, 0);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 6);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__right_linked_list) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {6};
-	bst_t dst = {1, 2, 3, 4, 5};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	bst_t::iterator it = dst.insert(dst.cbegin() + 4, std::forward<bst_t::node_type>(node));
-
-	EXPECT_NE(it, nullptr);
-	EXPECT_EQ(*it, 6);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 6);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__left_skewed_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {11};
-	bst_t dst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	bst_t::iterator it = dst.insert(dst.cbegin() + 3, std::forward<bst_t::node_type>(node));
-
-	EXPECT_NE(it, nullptr);
-	EXPECT_EQ(*it, 11);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 10);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__right_skewed_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {29};
-	bst_t dst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	bst_t::iterator it = dst.insert(dst.cbegin() + 3, std::forward<bst_t::node_type>(node));
-
-	EXPECT_NE(it, nullptr);
-	EXPECT_EQ(*it, 29);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 10);
-	EXPECT_EQ(dst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__balanced_bst) {
-	typedef adt::binary_search_tree<int> bst_t;
-
-	bst_t src = {29};
-	bst_t dst = {100, 20, 10, 30, 200, 150, 300};
-	bst_t::node_type node(src.cbegin());
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	bst_t::iterator it = dst.insert(dst.cbegin() + 3, std::forward<bst_t::node_type>(node));
-
-	EXPECT_NE(it, nullptr);
-	EXPECT_EQ(*it, 29);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	EXPECT_FALSE(dst.empty());
-	EXPECT_EQ(dst.size(), 8);
-	EXPECT_EQ(dst, matcher);
+	EXPECT_THROW(static_cast<void>(bst_node.value()), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(*bst_node), std::runtime_error);
 }
 
 TEST(binary_search_tree__methods, insert__node_handle_and_const_iterator__failed_insertion) {
@@ -6087,84 +5263,14 @@ TEST(binary_search_tree__methods, insert_range__single_node__right_insert) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, insert_range__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	std::vector<int> vec = {-2, -1, 0};
-	std::initializer_list<int> matcher = {-2, -1, 0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, insert_range__filled_bst) {
+	binary_search_tree bst;
+	std::set<value_type> set = filled_init;
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	bst.insert_range(set);
 
-	bst.insert_range(vec);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert_range__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	std::vector<int> vec = {6, 7, 8};
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6, 7, 8};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	bst.insert_range(vec);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert_range__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	std::vector<int> vec = {11, 13, 16};
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 13, 15, 16, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	bst.insert_range(vec);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 12);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert_range__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	std::vector<int> vec = {26, 27, 29};
-	std::initializer_list<int> matcher = {25, 26, 27, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	bst.insert_range(vec);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 12);
-
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, insert_range__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	std::vector<int> vec = {29, 31, 32};
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 31, 32, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	bst.insert_range(vec);
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(bst, matcher);
+	EXPECT_EQ(bst, set);
+	EXPECT_EQ(bst.size(), set.size());
 }
 
 TEST(binary_search_tree__methods, emplace__empty_bst) {
@@ -6221,94 +5327,19 @@ TEST(binary_search_tree__methods, emplace__single_node__right_emplace) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, emplace__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::value_type value = 0;
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, emplace__filled_bst) {
+	binary_search_tree bst = filled_init;
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	set_insertion_matcher(filled_init);
+	std::pair<iterator, bool> pair = bst.emplace(std::forward<value_type>(std::remove_cvref_t<value_type>(insertion_value)));
 
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.emplace(std::forward<int>(value));
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
+	EXPECT_NE(pair.first, bst.end());
+	EXPECT_EQ(*pair.first, insertion_value);
 
-	EXPECT_EQ(*pair.first, 0);
 	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::value_type value = 6;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.emplace(std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*pair.first, 6);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::value_type value = 11;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.emplace(std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 11);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::value_type value = 29;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.emplace(std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::value_type value = 29;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	std::pair<adt::binary_search_tree<int>::iterator, bool> pair = bst.emplace(std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*pair.first, 29);
-	EXPECT_TRUE(pair.second);
-	EXPECT_EQ(bst, matcher);
 }
 
 TEST(binary_search_tree__methods, emplace__failed_emplacement) {
@@ -6372,94 +5403,19 @@ TEST(binary_search_tree__methods, emplace_hint__single_node__right_emplace) {
 	EXPECT_EQ(bst, matcher);
 }
 
-TEST(binary_search_tree__methods, emplace_hint__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::value_type value = 0;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin();
-	std::initializer_list<int> matcher = {0, 1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, emplace_hint__filled_bst) {
+	binary_search_tree bst = filled_init;
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
+	bst_cit = bst.cbegin();
+	std::advance(bst_cit, bst.size() - 1);
+	set_insertion_matcher(filled_init);
+	bst_it = bst.emplace_hint(bst.cbegin(), std::forward<value_type>(std::remove_cvref_t<value_type>(insertion_value)));
 
-	adt::binary_search_tree<int>::iterator it = bst.emplace_hint(pos, std::forward<int>(value));
+	EXPECT_EQ(bst, insertion_matcher);
+	EXPECT_EQ(bst.size(), insertion_matcher.size());
 
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 0);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace_hint__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::value_type value = 6;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 4;
-	std::initializer_list<int> matcher = {1, 2, 3, 4, 5, 6};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 5);
-
-	adt::binary_search_tree<int>::iterator it = bst.emplace_hint(pos, std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 6);
-
-	EXPECT_EQ(*it, 6);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace_hint__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::value_type value = 11;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {1, 5, 8, 10, 11, 12, 15, 20, 22, 25};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.emplace_hint(pos, std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 11);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace_hint__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::value_type value = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 8;
-	std::initializer_list<int> matcher = {25, 28, 29, 30, 36, 38, 40, 45, 48, 50};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 9);
-
-	adt::binary_search_tree<int>::iterator it = bst.emplace_hint(pos, std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 10);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
-}
-
-TEST(binary_search_tree__methods, emplace_hint__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::value_type value = 29;
-	adt::binary_search_tree<int>::const_iterator pos = bst.cbegin() + 6;
-	std::initializer_list<int> matcher = {10, 20, 29, 30, 100, 150, 200, 300};
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 7);
-
-	adt::binary_search_tree<int>::iterator it = bst.emplace_hint(pos, std::forward<int>(value));
-
-	EXPECT_FALSE(bst.empty());
-	EXPECT_EQ(bst.size(), 8);
-
-	EXPECT_EQ(*it, 29);
-	EXPECT_EQ(bst, matcher);
+	EXPECT_NE(bst_it, bst.end());
+	EXPECT_EQ(*bst_it, insertion_value);
 }
 
 TEST(binary_search_tree__methods, erase__single_iterator__empty_bst) {
@@ -6496,149 +5452,34 @@ TEST(binary_search_tree__methods, erase__single_iterator__single_node) {
 	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
 }
 
-TEST(binary_search_tree__methods, erase__single_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, erase__single_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::list<value_type> values_matcher(filled_inorder_matcher.begin(), filled_inorder_matcher.end());
+	size_type size_matcher = filled_init.size();
 
-	for (std::forward_list<int>::size_type size_matcher = 5; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
+	for (; size_matcher > 0; size_matcher--) {
 		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.begin()));
-		values_matcher.pop_front();
-		
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_FALSE(it == nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_TRUE(it == nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
-
-	for (std::forward_list<int>::size_type size_matcher = 5; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
 		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
 
-		EXPECT_NO_THROW(it = bst.erase(bst.begin()));
+		EXPECT_NO_THROW(bst_it = bst.erase(bst.begin()));
 		values_matcher.pop_front();
 
 		if (bst.size() == 0) {
 			break;
 		}
 
-		EXPECT_FALSE(it == nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
+		EXPECT_NE(bst_it, bst.end());
+		EXPECT_EQ(*bst_it, values_matcher.front());
+
+		EXPECT_EQ(bst.get_min().value(), values_matcher.front());
+		EXPECT_EQ(bst.get_max().value(), values_matcher.back());
 	}
 
-	EXPECT_TRUE(bst.empty());
 	EXPECT_EQ(bst.size(), 0);
 	EXPECT_EQ(bst, values_matcher);
 
-	EXPECT_TRUE(it == nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 5, 8, 10, 12, 15, 20, 22, 25};
-
-	for (std::forward_list<int>::size_type size_matcher = 9; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.begin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {25, 28, 30, 36, 38, 40, 45, 48, 50};
-
-	for (std::forward_list<int>::size_type size_matcher = 9; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.begin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {10, 20, 30, 100, 150, 200, 300};
-
-	for (std::forward_list<int>::size_type size_matcher = 7; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.begin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
+	EXPECT_EQ(bst_it, bst.end());
+	EXPECT_THROW(static_cast<void>(*bst_it), std::runtime_error);
 }
 
 TEST(binary_search_tree__methods, erase__single_const_iterator__empty_bst) {
@@ -6675,149 +5516,34 @@ TEST(binary_search_tree__methods, erase__single_const_iterator__single_node) {
 	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
 }
 
-TEST(binary_search_tree__methods, erase__single_const_iterator__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
+TEST(binary_search_tree__methods, erase__single_const_iterator__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::list<value_type> values_matcher(filled_inorder_matcher.begin(), filled_inorder_matcher.end());
+	size_type size_matcher = static_cast<size_type>(filled_init.size());
 
-	for (std::forward_list<int>::size_type size_matcher = 5; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
+	for (; size_matcher > 0; size_matcher--) {
 		EXPECT_EQ(bst, values_matcher);
+		EXPECT_EQ(bst.size(), size_matcher);
 
-		EXPECT_NO_THROW(it = bst.erase(bst.cbegin()));
+		EXPECT_NO_THROW(bst_it = bst.erase(bst.cbegin()));
 		values_matcher.pop_front();
 
 		if (bst.size() == 0) {
 			break;
 		}
 
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
+		EXPECT_NE(bst_it, bst.end());
+		EXPECT_EQ(*bst_it, values_matcher.front());
+
+		EXPECT_EQ(bst.get_min().value(), values_matcher.front());
+		EXPECT_EQ(bst.get_max().value(), values_matcher.back());
 	}
 
-	EXPECT_TRUE(bst.empty());
 	EXPECT_EQ(bst.size(), 0);
 	EXPECT_EQ(bst, values_matcher);
 
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_const_iterator__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
-
-	for (std::forward_list<int>::size_type size_matcher = 5; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.cbegin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_const_iterator__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {1, 5, 8, 10, 12, 15, 20, 22, 25};
-
-	for (std::forward_list<int>::size_type size_matcher = 9; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.cbegin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_const_iterator__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {25, 28, 30, 36, 38, 40, 45, 48, 50};
-
-	for (std::forward_list<int>::size_type size_matcher = 9; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.cbegin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
-}
-
-TEST(binary_search_tree__methods, erase__single_const_iterator__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::iterator it;
-	std::forward_list<int> values_matcher = {10, 20, 30, 100, 150, 200, 300};
-
-	for (std::forward_list<int>::size_type size_matcher = 7; size_matcher > 0; size_matcher--) {
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst.size(), size_matcher);
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(it = bst.erase(bst.cbegin()));
-		values_matcher.pop_front();
-
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_NE(it, nullptr);
-		EXPECT_EQ(*it, values_matcher.front());
-	}
-
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-	EXPECT_EQ(bst, values_matcher);
-
-	EXPECT_EQ(it, nullptr);
-	EXPECT_THROW(static_cast<void>(*it), std::runtime_error);
+	EXPECT_EQ(bst_it, bst.end());
+	EXPECT_THROW(static_cast<void>(*bst_it), std::runtime_error);
 }
 
 TEST(binary_search_tree__methods, erase__iterator_range__empty_bst) {
@@ -6836,262 +5562,45 @@ TEST(binary_search_tree__methods, erase__iterator_range__single_node) {
 	EXPECT_THROW(static_cast<void>(it = bst.erase(bst.begin(), bst.end())), std::invalid_argument);
 }
 
-TEST(binary_search_tree__methods, erase__iterator_range__left_linked_list) {
-    std::initializer_list<int> values = {5, 4, 3, 2, 1};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 2, 3, 4, 5}, // erase nothing: [begin, begin) 
-        {2, 3, 4, 5},    // erase first 1 element: erase(1)
-        {3, 4, 5},       // erase first 2 elements: erase(1,2)
-        {4, 5},          // erase first 3 elements: erase(1,2,3)
-        {5},             // erase first 4 elements: erase(1,2,3,4)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
+TEST(binary_search_tree__methods, erase__iterator_range__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::vector<std::vector<value_type>> matchers;
 
-        // Get iterator to position i by advancing from begin
-		auto begin_it = bst.begin();
-        auto end_it = bst.begin();
-        std::advance(end_it, i);
+	matchers.reserve(filled_init.size());
+	for (auto it = filled_inorder_matcher.begin(); it != filled_inorder_matcher.end(); it++) {
+		matchers.push_back(std::vector<value_type>(it, filled_inorder_matcher.end()));
+	}
+
+	iterator begin_it = bst.begin();
+	iterator end_it = begin_it;
+	for (size_type i = 0; i <= filled_init.size(); i++) {
+		// Advance the BST's end iterator to position i
+		std::advance(end_it, i);
 
 		if (std::distance(begin_it, end_it) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_it, end_it), std::invalid_argument);
+			EXPECT_THROW(static_cast<void>(bst.erase(begin_it, end_it)), std::invalid_argument);
 			break;
 		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_it, end_it));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.begin(), bst.end()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
 
-TEST(binary_search_tree__methods, erase__iterator_range__right_linked_list) {
-    std::initializer_list<int> values = {1, 2, 3, 4, 5};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 2, 3, 4, 5}, // erase nothing
-        {2, 3, 4, 5},    // erase first 1 element
-        {3, 4, 5},       // erase first 2 elements
-        {4, 5},          // erase first 3 elements
-        {5},             // erase first 4 elements
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_it = bst.begin();
-        auto end_it = bst.begin();
-        std::advance(end_it, i);
-
-		if (std::distance(begin_it, end_it) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_it, end_it), std::invalid_argument);
-			break;
+		if (i < filled_init.size()) {
+			EXPECT_NO_THROW(bst_it = bst.erase(bst.begin(), end_it));
+			EXPECT_NE(bst_it, bst.end());
+			EXPECT_EQ(*bst_it, matchers[i][0]);
 		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_it, end_it));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.begin(), bst.end()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
 
-TEST(binary_search_tree__methods, erase__iterator_range__left_skewed_bst) {
-    std::initializer_list<int> values = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {1, 5, 8, 10, 12, 15, 20, 22, 25}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 5, 8, 10, 12, 15, 20, 22, 25}, // erase nothing
-        {5, 8, 10, 12, 15, 20, 22, 25},    // erase first 1: erase(1)
-        {8, 10, 12, 15, 20, 22, 25},       // erase first 2: erase(1,5)
-        {10, 12, 15, 20, 22, 25},          // erase first 3: erase(1,5,8)
-        {12, 15, 20, 22, 25},              // erase first 4: erase(1,5,8,10)
-        {15, 20, 22, 25},                  // erase first 5: erase(1,5,8,10,12)
-        {20, 22, 25},                      // erase first 6: erase(1,5,8,10,12,15)
-        {22, 25},                          // erase first 7: erase(1,5,8,10,12,15,20)
-        {25},                              // erase first 8: erase(1,5,8,10,12,15,20,22)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_it = bst.begin();
-        auto end_it = bst.begin();
-        std::advance(end_it, i);
+		// Verify remaining elements
+		std::vector<value_type> remaining(bst.begin(), bst.end());
+		EXPECT_EQ(remaining, matchers[i]);
 
-		if (std::distance(begin_it, end_it) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_it, end_it), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(bst.begin(), end_it));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.begin(), bst.end()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
+		// Reset
+		bst = filled_init;
+	}
 
-TEST(binary_search_tree__methods, erase__iterator_range__right_skewed_bst) {
-    std::initializer_list<int> values = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {25, 28, 30, 36, 38, 40, 45, 48, 50}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {25, 28, 30, 36, 38, 40, 45, 48, 50}, // erase nothing
-        {28, 30, 36, 38, 40, 45, 48, 50},     // erase first 1
-        {30, 36, 38, 40, 45, 48, 50},         // erase first 2
-        {36, 38, 40, 45, 48, 50},             // erase first 3
-        {38, 40, 45, 48, 50},                 // erase first 4
-        {40, 45, 48, 50},                     // erase first 5
-        {45, 48, 50},                         // erase first 6
-        {48, 50},                             // erase first 7
-        {50},                                 // erase first 8
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_it = bst.begin();
-        auto end_it = bst.begin();
-        std::advance(end_it, i);
-
-		if (std::distance(begin_it, end_it) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_it, end_it), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(bst.begin(), end_it));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.begin(), bst.end()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
-
-TEST(binary_search_tree__methods, erase__iterator_range__balanced_bst) {
-    std::initializer_list<int> values = {100, 20, 10, 30, 200, 150, 300};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {10, 20, 30, 100, 150, 200, 300}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {10, 20, 30, 100, 150, 200, 300}, // erase nothing
-        {20, 30, 100, 150, 200, 300},     // erase first 1: erase(10)
-        {30, 100, 150, 200, 300},         // erase first 2: erase(10,20)
-        {100, 150, 200, 300},             // erase first 3: erase(10,20,30)
-        {150, 200, 300},                  // erase first 4: erase(10,20,30,100)
-        {200, 300},                       // erase first 5: erase(10,20,30,100,150)
-        {300},                            // erase first 6: erase(10,20,30,100,150,200)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_it = bst.begin();
-        auto end_it = bst.begin();
-        std::advance(end_it, i);
-
-		if (std::distance(begin_it, end_it) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_it, end_it), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(bst.begin(), end_it));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.begin(), bst.end()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
+	// Test erasing all elements
+	EXPECT_NO_THROW(bst_it = bst.erase(bst.begin(), bst.end()));
+	EXPECT_TRUE(bst.empty());
+	EXPECT_EQ(bst.size(), 0);
+	EXPECT_EQ(bst_it, bst.end());
 }
 
 TEST(binary_search_tree__methods, erase__const_iterator_range__empty_bst) {
@@ -7110,262 +5619,45 @@ TEST(binary_search_tree__methods, erase__const_iterator_range__single_node) {
 	EXPECT_THROW(static_cast<void>(it = bst.erase(bst.cbegin(), bst.cend())), std::invalid_argument);
 }
 
-TEST(binary_search_tree__methods, erase__const_iterator_range__left_linked_list) {
-    std::initializer_list<int> values = {5, 4, 3, 2, 1};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 2, 3, 4, 5}, // erase nothing: [begin, begin) 
-        {2, 3, 4, 5},    // erase first 1 element: erase(1)
-        {3, 4, 5},       // erase first 2 elements: erase(1,2)
-        {4, 5},          // erase first 3 elements: erase(1,2,3)
-        {5},             // erase first 4 elements: erase(1,2,3,4)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
+TEST(binary_search_tree__methods, erase__const_iterator_range__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::vector<std::vector<value_type>> matchers;
 
-        // Get iterator to position i by advancing from begin
-		auto begin_cit = bst.cbegin();
-        auto end_cit = bst.cbegin();
-        std::advance(end_cit, i);
+	matchers.reserve(filled_init.size());
+	for (auto it = filled_inorder_matcher.begin(); it != filled_inorder_matcher.end(); it++) {
+		matchers.push_back(std::vector<value_type>(it, filled_inorder_matcher.end()));
+	}
+
+	const_iterator begin_cit = bst.begin();
+	const_iterator end_cit = begin_cit;
+	for (size_type i = 0; i <= filled_init.size(); i++) {
+		// Advance the BST's end iterator to position i
+		std::advance(end_cit, i);
 
 		if (std::distance(begin_cit, end_cit) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_cit, end_cit), std::invalid_argument);
+			EXPECT_THROW(static_cast<void>(bst.erase(begin_cit, end_cit)), std::invalid_argument);
 			break;
 		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_cit, end_cit));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.cbegin(), bst.cend()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
 
-TEST(binary_search_tree__methods, erase__const_iterator_range__right_linked_list) {
-    std::initializer_list<int> values = {1, 2, 3, 4, 5};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 2, 3, 4, 5}, // erase nothing
-        {2, 3, 4, 5},    // erase first 1 element
-        {3, 4, 5},       // erase first 2 elements
-        {4, 5},          // erase first 3 elements
-        {5},             // erase first 4 elements
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_cit = bst.cbegin();
-        auto end_cit = bst.cbegin();
-        std::advance(end_cit, i);
-
-		if (std::distance(begin_cit, end_cit) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_cit, end_cit), std::invalid_argument);
-			break;
+		if (i < filled_init.size()) {
+			EXPECT_NO_THROW(bst_cit = bst.erase(bst.begin(), end_cit));
+			EXPECT_NE(bst_cit, bst.cend());
+			EXPECT_EQ(*bst_cit, matchers[i][0]);
 		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_cit, end_cit));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.cbegin(), bst.cend()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
 
-TEST(binary_search_tree__methods, erase__const_iterator_range__left_skewed_bst) {
-    std::initializer_list<int> values = {25, 20, 10, 5, 1, 8, 12, 15, 22};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {1, 5, 8, 10, 12, 15, 20, 22, 25}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {1, 5, 8, 10, 12, 15, 20, 22, 25}, // erase nothing
-        {5, 8, 10, 12, 15, 20, 22, 25},    // erase first 1: erase(1)
-        {8, 10, 12, 15, 20, 22, 25},       // erase first 2: erase(1,5)
-        {10, 12, 15, 20, 22, 25},          // erase first 3: erase(1,5,8)
-        {12, 15, 20, 22, 25},              // erase first 4: erase(1,5,8,10)
-        {15, 20, 22, 25},                  // erase first 5: erase(1,5,8,10,12)
-        {20, 22, 25},                      // erase first 6: erase(1,5,8,10,12,15)
-        {22, 25},                          // erase first 7: erase(1,5,8,10,12,15,20)
-        {25},                              // erase first 8: erase(1,5,8,10,12,15,20,22)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_cit = bst.cbegin();
-        auto end_cit = bst.cbegin();
-        std::advance(end_cit, i);
+		// Verify remaining elements
+		std::vector<value_type> remaining(bst.begin(), bst.end());
+		EXPECT_EQ(remaining, matchers[i]);
 
-		if (std::distance(begin_cit, end_cit) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_cit, end_cit), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_cit, end_cit));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.cbegin(), bst.cend()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
+		// Reset
+		bst = filled_init;
+	}
 
-TEST(binary_search_tree__methods, erase__const_iterator_range__right_skewed_bst) {
-    std::initializer_list<int> values = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {25, 28, 30, 36, 38, 40, 45, 48, 50}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {25, 28, 30, 36, 38, 40, 45, 48, 50}, // erase nothing
-        {28, 30, 36, 38, 40, 45, 48, 50},     // erase first 1
-        {30, 36, 38, 40, 45, 48, 50},         // erase first 2
-        {36, 38, 40, 45, 48, 50},             // erase first 3
-        {38, 40, 45, 48, 50},                 // erase first 4
-        {40, 45, 48, 50},                     // erase first 5
-        {45, 48, 50},                         // erase first 6
-        {48, 50},                             // erase first 7
-        {50},                                 // erase first 8
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_cit = bst.cbegin();
-        auto end_cit = bst.cbegin();
-        std::advance(end_cit, i);
-
-		if (std::distance(begin_cit, end_cit) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_cit, end_cit), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_cit, end_cit));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.cbegin(), bst.cend()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
-}
-
-TEST(binary_search_tree__methods, erase__const_iterator_range__balanced_bst) {
-    std::initializer_list<int> values = {100, 20, 10, 30, 200, 150, 300};
-    adt::binary_search_tree<int> bst = values;
-    adt::binary_search_tree<int>::iterator it;
-    
-    // BST in-order traversal: {10, 20, 30, 100, 150, 200, 300}
-    // Expected remaining elements after erasing [begin, begin+i)
-    std::vector<std::vector<int>> matchers = {
-        {10, 20, 30, 100, 150, 200, 300}, // erase nothing
-        {20, 30, 100, 150, 200, 300},     // erase first 1: erase(10)
-        {30, 100, 150, 200, 300},         // erase first 2: erase(10,20)
-        {100, 150, 200, 300},             // erase first 3: erase(10,20,30)
-        {150, 200, 300},                  // erase first 4: erase(10,20,30,100)
-        {200, 300},                       // erase first 5: erase(10,20,30,100,150)
-        {300},                            // erase first 6: erase(10,20,30,100,150,200)
-    };
-    
-    for (std::size_t i = 0; i <= values.size(); i++) {
-        EXPECT_FALSE(bst.empty());
-        EXPECT_EQ(bst.size(), matchers[i].size());
-        
-        // Get iterator to position i
-		auto begin_cit = bst.cbegin();
-        auto end_cit = bst.cbegin();
-        std::advance(end_cit, i);
-
-		if (std::distance(begin_cit, end_cit) <= 0) {
-			EXPECT_THROW(it = bst.erase(begin_cit, end_cit), std::invalid_argument);
-			break;
-		}
-        
-        if (i < values.size()) {
-            EXPECT_NO_THROW(it = bst.erase(begin_cit, end_cit));
-            EXPECT_NE(it, bst.end());
-            EXPECT_EQ(*it, matchers[i][0]);
-        }
-        
-        // Verify remaining elements
-        std::vector<int> remaining(bst.begin(), bst.end());
-        EXPECT_EQ(remaining, matchers[i]);
-        
-        // Reset
-        bst = values;
-    }
-    
-    // Test erasing all elements
-    EXPECT_NO_THROW(it = bst.erase(bst.cbegin(), bst.cend()));
-    EXPECT_TRUE(bst.empty());
-    EXPECT_EQ(bst.size(), 0);
-    EXPECT_EQ(it, bst.end());
+	// Test erasing all elements
+	EXPECT_NO_THROW(bst_cit = bst.erase(bst.cbegin(), bst.cend()));
+	EXPECT_TRUE(bst.empty());
+	EXPECT_EQ(bst.size(), 0);
+	EXPECT_EQ(bst_cit, bst.cend());
 }
 
 TEST(binary_search_tree__methods, swap__empty_to_empty) {
@@ -7524,259 +5816,53 @@ TEST(binary_search_tree__methods, extract__single_node) {
 	EXPECT_EQ(node.value(), 101);
 }
 
-TEST(binary_search_tree__methods, extract__left_linked_list) {
-	adt::binary_search_tree<int> bst = {5, 4, 3, 2, 1};
-	adt::binary_search_tree<int>::node_type node;
-	std::list<adt::binary_search_tree<int>::node_type> nodes;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
-	constexpr std::size_t values_size = 5;
+TEST(binary_search_tree__methods, extract__filled_bst) {
+	binary_search_tree bst = filled_init;
+	std::list<node_type> nodes;
+	std::forward_list<value_type> values_matcher(filled_inorder_matcher.begin(), filled_inorder_matcher.end());
+	size_type size_matcher = filled_init.size();
 
-	for (std::size_t i = 0; i < values_size; i++) {
+	bst_cit = bst.cbegin();
+
+	for (size_type i = 0; i < size_matcher; i++) {
 		if (bst.size() == 0) {
 			break;
 		}
 
-		EXPECT_EQ(bst.size(), values_size - i);
-		EXPECT_FALSE(bst.empty());
+		EXPECT_EQ(bst.size(), size_matcher - i);
 		EXPECT_EQ(bst, values_matcher);
 
-		EXPECT_NO_THROW(node = bst.extract(bst.cbegin()));
+		EXPECT_NO_THROW(bst_node = bst.extract(bst_cit));
 
-		EXPECT_FALSE(node.empty());
-		EXPECT_NE(node, nullptr);
+		EXPECT_FALSE(bst_node.empty());
+		EXPECT_NE(bst_node, nullptr);
 
-		EXPECT_EQ(node.value(), values_matcher.front());
-		EXPECT_EQ(*node, values_matcher.front());
-
-		values_matcher.pop_front();
-		nodes.push_back(node);
-	}
-
-	node = bst.extract(bst.cbegin());
-	
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		node = nodes.front();
-		nodes.pop_front();
-		
-		static_cast<void>(bst.insert(std::forward<decltype(node)>(node)));
-	}
-
-	EXPECT_EQ(bst, std::initializer_list<int>({1, 2, 3, 4, 5}));
-	EXPECT_EQ(bst.size(), values_size);
-	EXPECT_FALSE(bst.empty());
-}
-
-TEST(binary_search_tree__methods, extract__right_linked_list) {
-	adt::binary_search_tree<int> bst = {1, 2, 3, 4, 5};
-	adt::binary_search_tree<int>::node_type node;
-	std::list<adt::binary_search_tree<int>::node_type> nodes;
-	std::forward_list<int> values_matcher = {1, 2, 3, 4, 5};
-	constexpr std::size_t values_size = 5;
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_EQ(bst.size(), values_size - i);
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(node = bst.extract(bst.cbegin()));
-
-		EXPECT_FALSE(node.empty());
-		EXPECT_NE(node, nullptr);
-
-		EXPECT_EQ(node.value(), values_matcher.front());
-		EXPECT_EQ(*node, values_matcher.front());
+		EXPECT_EQ(bst_node.value(), values_matcher.front());
+		EXPECT_EQ(*bst_node, values_matcher.front());
 
 		values_matcher.pop_front();
-		nodes.push_back(node);
+		nodes.push_back(std::move(bst_node));
 	}
 
-	node = bst.extract(bst.cbegin());
-	
-	EXPECT_TRUE(bst.empty());
+	bst_node = bst.extract(bst_cit);
+
 	EXPECT_EQ(bst.size(), 0);
 
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
+	EXPECT_TRUE(bst_node.empty());
+	EXPECT_EQ(bst_node, nullptr);
 
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(bst_node.value()), std::runtime_error);
+	EXPECT_THROW(static_cast<void>(*bst_node), std::runtime_error);
 
-	for (std::size_t i = 0; i < values_size; i++) {
-		node = nodes.front();
+	for (size_type i = 0; i < size_matcher; i++) {
+		bst_node = std::move(nodes.front());
 		nodes.pop_front();
-		
-		static_cast<void>(bst.insert(std::forward<decltype(node)>(node)));
+
+		static_cast<void>(bst.insert(std::forward<node_type>(bst_node)));
 	}
 
-	EXPECT_EQ(bst, std::initializer_list<int>({1, 2, 3, 4, 5}));
-	EXPECT_EQ(bst.size(), values_size);
-	EXPECT_FALSE(bst.empty());
-}
-
-TEST(binary_search_tree__methods, extract__left_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 20, 10, 22, 5, 12, 1, 8, 15};
-	adt::binary_search_tree<int>::node_type node;
-	std::list<adt::binary_search_tree<int>::node_type> nodes;
-	std::forward_list<int> values_matcher = {1, 5, 8, 10, 12, 15, 20, 22, 25};
-	constexpr std::size_t values_size = 9;
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_EQ(bst.size(), values_size - i);
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(node = bst.extract(bst.cbegin()));
-
-		EXPECT_FALSE(node.empty());
-		EXPECT_NE(node, nullptr);
-
-		EXPECT_EQ(node.value(), values_matcher.front());
-		EXPECT_EQ(*node, values_matcher.front());
-
-		values_matcher.pop_front();
-		nodes.push_back(node);
-	}
-
-	node = bst.extract(bst.cbegin());
-	
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		node = nodes.front();
-		nodes.pop_front();
-		
-		static_cast<void>(bst.insert(std::forward<decltype(node)>(node)));
-	}
-
-	EXPECT_EQ(bst, std::initializer_list<int>({1, 5, 8, 10, 12, 15, 20, 22, 25}));
-	EXPECT_EQ(bst.size(), values_size);
-	EXPECT_FALSE(bst.empty());
-}
-
-TEST(binary_search_tree__methods, extract__right_skewed_bst) {
-	adt::binary_search_tree<int> bst = {25, 36, 30, 28, 40, 38, 48, 45, 50};
-	adt::binary_search_tree<int>::node_type node;
-	std::list<adt::binary_search_tree<int>::node_type> nodes;
-	std::forward_list<int> values_matcher = {25, 28, 30, 36, 38, 40, 45, 48, 50};
-	constexpr std::size_t values_size = 9;
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_EQ(bst.size(), values_size - i);
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(node = bst.extract(bst.cbegin()));
-
-		EXPECT_FALSE(node.empty());
-		EXPECT_NE(node, nullptr);
-
-		EXPECT_EQ(node.value(), values_matcher.front());
-		EXPECT_EQ(*node, values_matcher.front());
-
-		values_matcher.pop_front();
-		nodes.push_back(node);
-	}
-
-	node = bst.extract(bst.cbegin());
-	
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		node = nodes.front();
-		nodes.pop_front();
-		
-		static_cast<void>(bst.insert(std::forward<decltype(node)>(node)));
-	}
-
-	EXPECT_EQ(bst, std::initializer_list<int>({25, 28, 30, 36, 38, 40, 45, 48, 50}));
-	EXPECT_EQ(bst.size(), values_size);
-	EXPECT_FALSE(bst.empty());
-}
-
-TEST(binary_search_tree__methods, extract__balanced_bst) {
-	adt::binary_search_tree<int> bst = {100, 20, 10, 30, 200, 150, 300};
-	adt::binary_search_tree<int>::node_type node;
-	std::list<adt::binary_search_tree<int>::node_type> nodes;
-	std::forward_list<int> values_matcher = {10, 20, 30, 100, 150, 200, 300};
-	constexpr std::size_t values_size = 7;
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		if (bst.size() == 0) {
-			break;
-		}
-
-		EXPECT_EQ(bst.size(), values_size - i);
-		EXPECT_FALSE(bst.empty());
-		EXPECT_EQ(bst, values_matcher);
-
-		EXPECT_NO_THROW(node = bst.extract(bst.cbegin()));
-
-		EXPECT_FALSE(node.empty());
-		EXPECT_NE(node, nullptr);
-
-		EXPECT_EQ(node.value(), values_matcher.front());
-		EXPECT_EQ(*node, values_matcher.front());
-
-		values_matcher.pop_front();
-		nodes.push_back(node);
-	}
-
-	node = bst.extract(bst.cbegin());
-	
-	EXPECT_TRUE(bst.empty());
-	EXPECT_EQ(bst.size(), 0);
-
-	EXPECT_TRUE(node.empty());
-	EXPECT_EQ(node, nullptr);
-
-	EXPECT_THROW(static_cast<void>(node.value()), std::runtime_error);
-	EXPECT_THROW(static_cast<void>(*node), std::runtime_error);
-
-	for (std::size_t i = 0; i < values_size; i++) {
-		node = nodes.front();
-		nodes.pop_front();
-		
-		static_cast<void>(bst.insert(std::forward<decltype(node)>(node)));
-	}
-
-	EXPECT_EQ(bst, std::initializer_list<int>({10, 20, 30, 100, 150, 200, 300}));
-	EXPECT_EQ(bst.size(), values_size);
-	EXPECT_FALSE(bst.empty());
+	EXPECT_EQ(bst, filled_inorder_matcher);
+	EXPECT_EQ(bst.size(), size_matcher);
 }
 
 TEST(binary_search_tree__methods, merge__lref__empty_into_empty) {
@@ -7880,4 +5966,209 @@ TEST(binary_search_tree__methods, merge__rref__filled_into_filled) {
 
 	EXPECT_EQ(dst, matcher_dst);
 	EXPECT_EQ(src, matcher_src);
+}
+
+TEST(binary_search_tree__methods, find__iterator__empty_bst) {
+	bst_it = bst_empty.find(0);
+
+	EXPECT_EQ(bst_it, bst_empty.end());
+	EXPECT_THROW(static_cast<void>(*bst_it), std::runtime_error);
+}
+
+TEST(binary_search_tree__methods, find__iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size(); i++) {
+		bst_it = bst_filled.find(filled_inorder_matcher[i]);
+		EXPECT_NE(bst_it, bst_filled.end());
+		EXPECT_EQ(*bst_it, filled_inorder_matcher[i]);
+	}
+}
+
+TEST(binary_search_tree__methods, find__const_iterator__empty_bst) {
+	bst_cit = bst_empty.find(0);
+
+	EXPECT_EQ(bst_cit, bst_empty.end());
+	EXPECT_THROW(static_cast<void>(*bst_cit), std::runtime_error);
+}
+
+TEST(binary_search_tree__methods, find__const_iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size(); i++) {
+		bst_cit = bst_filled.find(filled_inorder_matcher[i]);
+		EXPECT_NE(bst_cit, bst_filled.end());
+		EXPECT_EQ(*bst_cit, filled_inorder_matcher[i]);
+	}
+}
+
+TEST(binary_search_tree__methods, contains__empty_bst) {
+	EXPECT_FALSE(bst_empty.contains(single_matcher[0]));
+}
+
+TEST(binary_search_tree__methods, contains__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size(); i++) {
+		EXPECT_TRUE(bst_filled.contains(filled_inorder_matcher[i]));
+	}
+}
+
+TEST(binary_search_tree__methods, equal_range__iterator__empty_bst) {
+	std::pair<iterator, iterator> range = bst_empty.equal_range(single_matcher[0]);
+	bst_it = bst_empty.begin();
+
+	EXPECT_EQ(range.first, bst_it);
+	EXPECT_EQ(range.second, bst_it);
+}
+
+TEST(binary_search_tree__methods, equal_range__iterator__filled_bst) {
+	std::pair<iterator, iterator> range;
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		range = bst_filled.equal_range(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*range.first, filled_inorder_matcher[i]);
+		EXPECT_EQ(*range.second, filled_inorder_matcher[i + 1]);
+	}
+}
+
+TEST(binary_search_tree__methods, equal_range__iterator__non_existant_value) {
+	std::pair<iterator, iterator> range = bst_filled.equal_range(query_value);
+	std::set<value_type> matcher_set = filled_init;
+	std::pair<std::set<value_type>::iterator,
+			  std::set<value_type>::iterator> matcher_range = matcher_set.equal_range(query_value);
+
+	bst_it = bst_filled.end();
+
+	EXPECT_NE(range.first, bst_it);
+	EXPECT_NE(range.second, bst_it);
+
+	EXPECT_EQ(*range.first, *matcher_range.first);
+	EXPECT_EQ(*range.second, *matcher_range.second);
+}
+
+TEST(binary_search_tree__methods, equal_range__const_iterator__empty_bst) {
+	std::pair<const_iterator, const_iterator> range = bst_empty.equal_range(single_matcher[0]);
+	bst_cit = bst_empty.cbegin();
+
+	EXPECT_EQ(range.first, bst_cit);
+	EXPECT_EQ(range.second, bst_cit);
+}
+
+TEST(binary_search_tree__methods, equal_range__const_iterator__filled_bst) {
+	std::pair<const_iterator, const_iterator> range;
+
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		range = bst_filled.equal_range(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*range.first, filled_inorder_matcher[i]);
+		EXPECT_EQ(*range.second, filled_inorder_matcher[i + 1]);
+	}
+}
+
+TEST(binary_search_tree__methods, equal_range__const_iterator__non_existant_value) {
+	std::pair<const_iterator, const_iterator> range = bst_filled.equal_range(query_value);
+	std::set<value_type> matcher_set = filled_init;
+	std::pair<std::set<value_type>::const_iterator,
+			  std::set<value_type>::const_iterator> matcher_range = matcher_set.equal_range(query_value);
+
+	bst_cit = bst_filled.cend();
+
+	EXPECT_NE(range.first, bst_cit);
+	EXPECT_NE(range.second, bst_cit);
+
+	EXPECT_EQ(*range.first, *matcher_range.first);
+	EXPECT_EQ(*range.second, *matcher_range.second);
+}
+
+TEST(binary_search_tree__methods, lower_bound__iterator__empty_bst) {
+	bst_it = bst_empty.lower_bound(single_matcher[0]);
+
+	EXPECT_EQ(bst_it, bst_empty.end());
+}
+
+TEST(binary_search_tree__methods, lower_bound__iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		bst_it = bst_filled.lower_bound(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*bst_it, filled_inorder_matcher[i]);
+	}
+}
+
+TEST(binary_search_tree__methods, lower_bound__iterator__non_existant_value) {
+	std::set<value_type> matcher_set = filled_init;
+	std::set<value_type>::iterator matcher_it = matcher_set.lower_bound(query_value);
+
+	bst_it = bst_filled.lower_bound(query_value);
+
+	EXPECT_NE(bst_it, bst_filled.end());
+	EXPECT_EQ(*bst_it, *matcher_it);
+}
+
+TEST(binary_search_tree__methods, lower_bound__const_iterator__empty_bst) {
+	bst_cit = bst_empty.lower_bound(single_matcher[0]);
+
+	EXPECT_EQ(bst_cit, bst_empty.cend());
+}
+
+TEST(binary_search_tree__methods, lower_bound__const_iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		bst_cit = bst_filled.lower_bound(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*bst_cit, filled_inorder_matcher[i]);
+	}
+}
+
+TEST(binary_search_tree__methods, lower_bound__const_iterator__non_existant_value) {
+	std::set<value_type> matcher_set = filled_init;
+	std::set<value_type>::const_iterator matcher_cit = matcher_set.lower_bound(query_value);
+
+	bst_cit = bst_filled.lower_bound(query_value);
+
+	EXPECT_NE(bst_cit, bst_filled.cend());
+	EXPECT_EQ(*bst_cit, *matcher_cit);
+}
+
+TEST(binary_search_tree__methods, upper_bound__iterator__empty_bst) {
+	bst_it = bst_empty.upper_bound(query_value);
+
+	EXPECT_EQ(bst_it, bst_empty.end());
+}
+
+TEST(binary_search_tree__methods, upper_bound__iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		bst_it = bst_filled.upper_bound(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*bst_it, filled_inorder_matcher[i + 1]);
+	}
+}
+
+TEST(binary_search_tree__methods, upper_bound__iterator__non_existant_value) {
+	std::set<value_type> matcher_set = filled_init;
+	std::set<value_type>::iterator matcher_it = matcher_set.upper_bound(query_value);
+
+	bst_it = bst_filled.upper_bound(query_value);
+
+	EXPECT_NE(bst_it, bst_filled.end());
+
+	EXPECT_EQ(*bst_it, *matcher_it);
+}
+
+TEST(binary_search_tree__methods, upper_bound__const_iterator__empty_bst) {
+	bst_cit = bst_empty.upper_bound(query_value);
+
+	EXPECT_EQ(bst_cit, bst_empty.cend());
+}
+
+TEST(binary_search_tree__methods, upper_bound__const_iterator__filled_bst) {
+	for (size_type i = 0; i < filled_inorder_matcher.size() - 1; i++) {
+		bst_cit = bst_filled.upper_bound(filled_inorder_matcher[i]);
+
+		EXPECT_EQ(*bst_cit, filled_inorder_matcher[i + 1]);
+	}
+}
+
+TEST(binary_search_tree__methods, upper_bound__const_iterator__non_existant_value) {
+	std::set<value_type> matcher_set = filled_init;
+	std::set<value_type>::const_iterator matcher_cit = matcher_set.upper_bound(query_value);
+
+	bst_cit = bst_filled.upper_bound(query_value);
+
+	EXPECT_NE(bst_cit, bst_filled.cend());
+
+	EXPECT_EQ(*bst_cit, *matcher_cit);
 }

@@ -42,6 +42,9 @@ namespace adt {
 
         using const_pointer = typename binary_tree<T, Allocator>::const_pointer;
 
+        template<std::input_iterator Iterator, class NodeType>
+        using insert_return_type = binary_tree<T, Allocator>::template insert_return_type<Iterator, NodeType>;
+        
     protected:
         /* ----------------------------------------------Definitions------------------------------------------------ */
         using _Node = binary_tree<T, Allocator>::_Node;
@@ -336,28 +339,76 @@ namespace adt {
             return curr;
         }
 
-        constexpr void _transplant(_Node* const dst, _Node* const src) noexcept {
-            // If the destination node is the root node...
-            if (dst->parent == nullptr) {
-                // Transplant the source node into the root node
-                this->root = src;
-            } else if (dst == dst->parent->left) {
-                // Otherwise, if the destination node is a left child, then use it's parent
-                // to transplant the source node
-                dst->parent->left = src;
-            } else {
-                // Otherwise, if the destination node is a right child, then use it's parent
-                // to transplant the source node
-                dst->parent->right = src;
+        constexpr std::pair<_Node*, bool> _insert(const_reference value, _Node* curr = nullptr) noexcept {
+            // Insert `value` at the root if the BST is empty
+            if (this->root == nullptr) {
+                this->root = this->min_node = this->max_node = this->_construct_node(value, nullptr, nullptr, nullptr);
+                this->sz++;
+                return std::make_pair(this->root, true);
             }
 
-            // Connect the source node to the destination node if the source node is not empty
-            if (src != nullptr) {
-                src->parent = dst->parent;
+            if (curr == nullptr) {
+                curr = this->root;
             }
+
+            // For each node in the BST...
+            while (curr != nullptr) {
+                // If the current node is out of place...
+                if ((curr->parent != nullptr) &&
+                    ((curr == curr->parent->left && curr->parent->value < value) ||
+                    (curr == curr->parent->right && curr->parent->value > value))) {
+                    // Traverse back up the BST until all nodes to the left of the current node are less than itself and
+                    // all nodes to the right of current node are greater than itself
+                    curr = curr->parent;
+                } else if (value < curr->value) {
+                    // If the current node has no left child...
+                    if (curr->left == nullptr) {
+                        // Insert `value` to the left of the current node
+                        curr->left = this->_construct_node(value, curr, nullptr, nullptr);
+
+                        // Visit the new node and exit the loop
+                        curr = curr->left;
+                        break;
+                    }
+
+                    // Otherwise, visit the left child
+                    curr = curr->left;
+                } else if (value > curr->value) {
+                    // If the current node has no right child...
+                    if (curr->right == nullptr) {
+                        // Insert `value` to the right of the current node
+                        curr->right = this->_construct_node(value, curr, nullptr, nullptr);
+
+                        // Visit the new node and exit the loop
+                        curr = curr->right;
+                        break;
+                    }
+
+                    // Otherwise, visit the right child
+                    curr = curr->right;
+                } else {
+                    // Return the current node with a false boolean indicating nothing was inserted
+                    return std::make_pair(curr, false);
+                }
+            }
+
+            // Update the minimum node (if needed)
+            if (this->min_node->left != nullptr) {
+                this->min_node = this->min_node->left;
+            }
+
+            // Update the maximum node (if needed)
+            if (this->max_node->right != nullptr) {
+                this->max_node = this->max_node->right;
+            }
+
+            // Update the BST size
+            this->sz++;
+
+            return std::make_pair(curr, true);
         }
 
-        constexpr std::pair<_Node*, bool> _insert(const_reference value, _Node** p_curr = nullptr) noexcept {
+        constexpr std::pair<_Node*, bool> __insert(const_reference value, _Node** p_curr = nullptr) noexcept {
             _Node* prev = nullptr;
 
             // If the address of the current node points to nullptr...
@@ -397,7 +448,7 @@ namespace adt {
             }
 
             // Create a new node at the current node
-            *p_curr = this->_construct_node(value, prev, nullptr, nullptr, 0);
+            *p_curr = this->_construct_node(value, prev, nullptr, nullptr);
 
             // If the node being inserted is the root...
             if (prev == nullptr) {
@@ -420,7 +471,28 @@ namespace adt {
             return std::make_pair(*p_curr, true);
         }
 
-        constexpr _Node* _remove(_Node*& target) noexcept {
+        constexpr void _transplant(_Node* const dst, _Node* const src) noexcept {
+            // If the destination node is the root node...
+            if (dst->parent == nullptr) {
+                // Transplant the source node into the root node
+                this->root = src;
+            } else if (dst == dst->parent->left) {
+                // Otherwise, if the destination node is a left child, then use it's parent
+                // to transplant the source node
+                dst->parent->left = src;
+            } else {
+                // Otherwise, if the destination node is a right child, then use it's parent
+                // to transplant the source node
+                dst->parent->right = src;
+            }
+
+            // Connect the source BST to the destination subtree
+            if (src != nullptr) {
+                src->parent = dst->parent;
+            }
+        }
+
+        constexpr _Node* _remove(_Node* target) noexcept {
             if (target == nullptr) {
                 return nullptr;
             }
@@ -453,7 +525,7 @@ namespace adt {
                     // Transplant the current node's left child into itself
                     this->_transplant(target, target->left);
                 }
-            } else { 
+            } else {
                 if (target->right != nullptr) { // Case 3: Single Child (Right)
                     // Find the inorder successor to the current node
                     successor = _find_successor(target);
@@ -469,10 +541,37 @@ namespace adt {
                 }
             }
 
-            /* Need to optimize this */
-            this->min_node = this->_find_min(this->root);
-            this->max_node = this->_find_max(this->root);
+            // Update the minimum node (if needed)
+            if (target == this->min_node) {
+                // If the minimum node has no children...
+                if (this->min_node->right == nullptr) {
+                    // Make the parent node the new minimum node
+                    this->min_node = this->min_node->parent;
+                } else {
+                    // Otherwise, find the inorder successor and make that the new minimum node
+                    this->min_node = this->min_node->right;
+                    while (this->min_node->left != nullptr) {
+                        this->min_node = this->min_node->left;
+                    }
+                }
+            }
 
+            // Update the maximum node (if needed)
+            if (target == this->max_node) {
+                // If the maximum node has no children...
+                if (this->max_node->left == nullptr) {
+                    // Make the parent node the new maximum node
+                    this->max_node = this->max_node->parent;
+                } else {
+                    // Otherwise, find the inorder predecessor and make that the new maximum node
+                    this->max_node = this->max_node->left;
+                    while (this->max_node->right != nullptr) {
+                        this->max_node = this->max_node->left;
+                    }
+                }
+            }
+
+            // Update the BST size
             this->sz--;
 
             return successor;
@@ -514,7 +613,7 @@ namespace adt {
             }
 
             // Copy the current node from the source BST
-            dst_node = this->_construct_node(src_node->value, dst_parent, nullptr, nullptr, src_node->height);
+            dst_node = this->_construct_node(src_node->value, dst_parent, nullptr, nullptr);
 
             // If the current node from the source BST is in the only node...
             if (src_node->parent == nullptr && src_node->left == nullptr && src_node->right == nullptr) {
@@ -575,33 +674,6 @@ namespace adt {
             }
         }
 
-        // FOR TESTING - REMOVE WHEN FINISHED
-        constexpr void _print_adjacent_list(_Node* curr) const noexcept {
-            if (curr == nullptr) {
-                return;
-            }
-
-            std::cout << curr->value << " -> {";
-            if (curr->left != nullptr) {
-                std::cout << curr->left->value;
-                if (curr->right != nullptr) {
-                    std::cout << ", " << curr->right->value;
-                } else {
-                    std::cout << ", null";
-                }
-            } else {
-                if (curr->right != nullptr) {
-                    std::cout << "null, " << curr->right->value;
-                } else {
-                    std::cout << "null, null";
-                }
-            }
-            std::cout << "}\n";
-
-            this->_print_adjacent_list(curr->left);
-            this->_print_adjacent_list(curr->right);
-        } 
-
     public:
         /* -------------------------------------------Constant Iterator--------------------------------------------- */
         class const_iterator : public binary_tree<T, Allocator>::const_iterator {
@@ -611,31 +683,42 @@ namespace adt {
 
         protected:
             /* ---------------------------------------------Fields-------------------------------------------------- */
+            const binary_search_tree* bst_p;
+
             bst_traversals traversal;
 
             /* ------------------------------------------Constructors----------------------------------------------- */
-            constexpr const_iterator(const _Node* const& node) noexcept 
-                : binary_tree<T, Allocator>::const_iterator(node) {}
+            constexpr const_iterator(const _Node* const& node, const binary_search_tree* bst_p = nullptr) noexcept
+                : binary_tree<T, Allocator>::const_iterator(node) { this->bst_p = bst_p; }
 
         public:
             /* ------------------------------------------Constructors----------------------------------------------- */
             constexpr const_iterator() noexcept : binary_tree<T, Allocator>::const_iterator() {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
             
             constexpr explicit const_iterator(std::nullptr_t) noexcept 
-                : binary_tree<T, Allocator>::const_iterator(nullptr) { this->traversal = bst_traversals::inorder; }
+                : binary_tree<T, Allocator>::const_iterator(nullptr) {
+                this->bst_p = nullptr;
+                this->traversal = bst_traversals::inorder;
+            }
 
             constexpr explicit const_iterator(const binary_search_tree& tree) noexcept 
                 : binary_tree<T, Allocator>::const_iterator(tree.min_node) {
+                this->bst_p = &tree;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit const_iterator(bst_traversals traversal) noexcept 
-                : binary_tree<T, Allocator>::const_iterator() { this->traversal = traversal; }
+                : binary_tree<T, Allocator>::const_iterator() {
+                this->bst_p = nullptr;
+                this->traversal = traversal;
+            }
 
             constexpr const_iterator(const binary_search_tree& tree, bst_traversals traversal) noexcept 
                 : binary_tree<T, Allocator>::const_iterator(tree) {
+                this->bst_p = &tree;
                 this->traversal = traversal;
 
                 switch (this->traversal) {
@@ -652,10 +735,16 @@ namespace adt {
             }
             
             constexpr const_iterator(const const_iterator& other) noexcept
-                : binary_tree<T, Allocator>::const_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::const_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             constexpr const_iterator(const_iterator&& other) noexcept 
-                : binary_tree<T, Allocator>::const_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::const_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             /* -------------------------------------------Destructor------------------------------------------------ */
             constexpr ~const_iterator() noexcept = default;
@@ -907,32 +996,40 @@ namespace adt {
 
         protected:
             /* ---------------------------------------------Fields-------------------------------------------------- */
+            const binary_search_tree* bst_p;
+
             bst_traversals traversal;
 
             /* ------------------------------------------Constructors----------------------------------------------- */
-            constexpr iterator(_Node* const& node) noexcept : binary_tree<T, Allocator>::iterator(node) {}
+            constexpr iterator(_Node* const& node, const binary_search_tree* bst_p = nullptr) noexcept
+                : binary_tree<T, Allocator>::iterator(node) { this->bst_p = bst_p;}
 
         public:
             /* ------------------------------------------Constructors----------------------------------------------- */
             constexpr iterator() noexcept : binary_tree<T, Allocator>::iterator() {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit iterator(std::nullptr_t) noexcept : binary_tree<T, Allocator>::iterator(nullptr) {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit iterator(const binary_search_tree& tree) noexcept 
                 : binary_tree<T, Allocator>::iterator(tree.min_node) {
+                this->bst_p = &tree;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit iterator(bst_traversals traversal) noexcept : binary_tree<T, Allocator>::iterator() {
+                this->bst_p = nullptr;
                 this->traversal = traversal;
             }
 
             constexpr iterator(const binary_search_tree& tree, bst_traversals traversal) noexcept 
                 : binary_tree<T, Allocator>::iterator(tree.min_node) {
+                this->bst_p = &tree;
                 this->traversal = traversal;
                 
                 switch (this->traversal) {
@@ -949,10 +1046,12 @@ namespace adt {
             }
             
             constexpr iterator(const iterator& other) noexcept : binary_tree<T, Allocator>::iterator(other) {
+                this->bst_p = other.bst_p;
                 this->traversal = other.traversal;
             }
 
             constexpr iterator(iterator&& other) noexcept : binary_tree<T, Allocator>::iterator(other) {
+                this->bst_p = other.bst_p;
                 this->traversal = other.traversal;
             }
 
@@ -1190,7 +1289,7 @@ namespace adt {
             }
             
             [[nodiscard]] constexpr operator const_iterator() const noexcept {
-                return const_iterator(this->node);
+                return const_iterator(this->node, this->bst_p);
             }
 
             /* ---------------------------------------------Methods------------------------------------------------- */
@@ -1206,33 +1305,42 @@ namespace adt {
 
         protected:
             /* ---------------------------------------------Fields-------------------------------------------------- */
+            const binary_search_tree* bst_p;
+
             bst_traversals traversal;
 
             /* ------------------------------------------Constructors----------------------------------------------- */
-            constexpr const_reverse_iterator(const _Node* const& node) noexcept 
-                : binary_tree<T, Allocator>::const_reverse_iterator(node) {}
+            constexpr const_reverse_iterator(const _Node* const& node, const binary_search_tree* bst_p = nullptr) noexcept
+                : binary_tree<T, Allocator>::const_reverse_iterator(node) { this->bst_p = bst_p; }
 
         public:
             /* ------------------------------------------Constructors----------------------------------------------- */
             constexpr const_reverse_iterator() noexcept : binary_tree<T, Allocator>::const_reverse_iterator() {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit const_reverse_iterator(std::nullptr_t) noexcept 
                 : binary_tree<T, Allocator>::const_reverse_iterator(nullptr) {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit const_reverse_iterator(const binary_search_tree& tree) noexcept
                 : binary_tree<T, Allocator>::const_reverse_iterator(tree.max_node) {
+                this->bst_p = &tree;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit const_reverse_iterator(bst_traversals traversal) noexcept 
-                : binary_tree<T, Allocator>::const_reverse_iterator() { this->traversal = traversal; }
+                : binary_tree<T, Allocator>::const_reverse_iterator() {
+                this->bst_p = nullptr;
+                this->traversal = traversal;
+            }
 
             constexpr const_reverse_iterator(const binary_search_tree& tree, bst_traversals traversal) noexcept
                 : binary_tree<T, Allocator>::const_reverse_iterator(tree) {
+                this->bst_p = &tree;
                 this->traversal = traversal;
 
                 switch (this->traversal) {
@@ -1251,10 +1359,16 @@ namespace adt {
             }
             
             constexpr const_reverse_iterator(const const_reverse_iterator& other) noexcept
-                : binary_tree<T, Allocator>::const_reverse_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::const_reverse_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             constexpr const_reverse_iterator(const_reverse_iterator&& other) noexcept
-                : binary_tree<T, Allocator>::const_reverse_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::const_reverse_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             /* ------------------------------------------Destructor------------------------------------------------- */
             constexpr ~const_reverse_iterator() noexcept = default;
@@ -1494,31 +1608,42 @@ namespace adt {
 
         protected:
             /* --------------------------------------------Fields--------------------------------------------------- */
+            const binary_search_tree* bst_p;
+
             bst_traversals traversal;
 
             /* ------------------------------------------Constructors----------------------------------------------- */
-            constexpr reverse_iterator(_Node* const& node) noexcept 
-                : binary_tree<T, Allocator>::reverse_iterator(node) {}
+            constexpr reverse_iterator(_Node* const& node, const binary_search_tree* bst_p = nullptr) noexcept
+                : binary_tree<T, Allocator>::reverse_iterator(node) { this->bst_p = bst_p; }
 
         public:
             /* ------------------------------------------Constructors----------------------------------------------- */
             constexpr reverse_iterator() noexcept : binary_tree<T, Allocator>::reverse_iterator() {
+                this->bst_p = nullptr;
                 this->traversal = bst_traversals::inorder;
             }
 
             constexpr explicit reverse_iterator(std::nullptr_t) noexcept
-                : binary_tree<T, Allocator>::reverse_iterator(nullptr) { this->traversal = bst_traversals::inorder; }
+                : binary_tree<T, Allocator>::reverse_iterator(nullptr) {
+                this->bst_p = nullptr;
+                this->traversal = bst_traversals::inorder;
+            }
 
             constexpr explicit reverse_iterator(const binary_search_tree& tree) noexcept
                 : binary_tree<T, Allocator>::reverse_iterator(tree.max_node) {
+                    this->bst_p = &tree;
                     this->traversal = bst_traversals::inorder;
                 }
 
             constexpr explicit reverse_iterator(bst_traversals traversal) noexcept
-                : binary_tree<T, Allocator>::reverse_iterator() { this->traversal = traversal; }
+                : binary_tree<T, Allocator>::reverse_iterator() {
+                this->bst_p = nullptr;
+                this->traversal = traversal;
+            }
 
             constexpr reverse_iterator(const binary_search_tree& tree, bst_traversals traversal) noexcept
                 : binary_tree<T, Allocator>::reverse_iterator(tree) {
+                this->bst_p = &tree;
 		        this->traversal = traversal;
 
                 switch (this->traversal) {
@@ -1537,10 +1662,16 @@ namespace adt {
             }
             
             constexpr reverse_iterator(const reverse_iterator& other) noexcept 
-                : binary_tree<T, Allocator>::reverse_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::reverse_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             constexpr reverse_iterator(reverse_iterator&& other) noexcept
-                : binary_tree<T, Allocator>::reverse_iterator(other) { this->traversal = other.traversal; }
+                : binary_tree<T, Allocator>::reverse_iterator(other) {
+                this->bst_p = other.bst_p;
+                this->traversal = other.traversal;
+            }
 
             /* ------------------------------------------Destructor------------------------------------------------- */
             constexpr ~reverse_iterator() noexcept = default;
@@ -1768,7 +1899,7 @@ namespace adt {
             }
         
             [[nodiscard]] constexpr operator const_reverse_iterator() const noexcept {
-                return const_reverse_iterator(std::forward<_Node*>(this->node));
+                return const_reverse_iterator(this->node, this->bst_p);
             }
 
             /* ---------------------------------------------Methods------------------------------------------------- */
@@ -1779,11 +1910,11 @@ namespace adt {
         /* ----------------------------------------------Node Type-------------------------------------------------- */
         class node_type : public binary_tree<T, Allocator>::node_type {
         private:
-            /* --------------------------------------------Friends-------------------------------------------------- */
+            /* -------------------------------------------Friends--------------------------------------------------- */
             friend class binary_search_tree;
         
         protected:
-            /* ------------------------------------------Constructors----------------------------------------------- */
+            /* -----------------------------------------Constructors------------------------------------------------ */
             constexpr node_type(const _Node* node) noexcept {
                 if (node == nullptr) {
                     this->node = nullptr;
@@ -1794,6 +1925,8 @@ namespace adt {
             
         public:
             /* -----------------------------------------Definitions------------------------------------------------- */
+            using value_type = typename binary_tree<T, Allocator>::node_type::value_type;
+
             using allocator_type = typename binary_tree<T, Allocator>::node_type::allocator_type;
 
             /* -----------------------------------------Constructors------------------------------------------------ */
@@ -1801,7 +1934,7 @@ namespace adt {
 
             constexpr node_type(std::nullptr_t) noexcept : binary_tree<T, Allocator>::node_type(nullptr) {}
 
-            constexpr node_type(const node_type& other) noexcept : binary_tree<T, Allocator>::node_type(other) {}
+            constexpr node_type(const node_type& other) noexcept = delete;
 
             constexpr node_type(node_type&& other) noexcept 
                 : binary_tree<T, Allocator>::node_type(std::forward<node_type>(other)) {}
@@ -1819,7 +1952,7 @@ namespace adt {
             constexpr ~node_type() noexcept = default;
 
             /* ---------------------------------------Overloaded Operators------------------------------------------ */
-            constexpr node_type& operator=(const node_type&) noexcept = default;
+            constexpr node_type& operator=(const node_type&) noexcept = delete;
 
             constexpr node_type& operator=(node_type&&) noexcept = default;
 
@@ -1830,13 +1963,7 @@ namespace adt {
                     return *this;
                 }
 
-                this->node = pos.node;
-                return *this;
-            }
-
-            constexpr node_type& operator=(std::nullptr_t) noexcept {
-                this->_destroy();
-                this->node = nullptr;
+                this->_construct(const_cast<_Node*>(pos.node));
                 return *this;
             }
 
@@ -1850,33 +1977,6 @@ namespace adt {
                 return this->node <=> nullptr;
             }
 
-        };
-
-        /* ------------------------------------------Insert Return Type--------------------------------------------- */
-        template<std::input_iterator InputIt = iterator, class NodeType = node_type>
-        struct insert_return_type : binary_tree<T, Allocator>::template insert_return_type<InputIt, NodeType> {
-            /* -----------------------------------------Constructors------------------------------------------------ */
-            constexpr insert_return_type() noexcept
-                : binary_tree<T, Allocator>::template insert_return_type<InputIt, NodeType>() {}
-
-            constexpr insert_return_type(InputIt position, bool inserted, NodeType node) noexcept
-                : binary_tree<T, Allocator>::template insert_return_type<InputIt, NodeType>(position, inserted, node) {}
-
-            constexpr insert_return_type(const insert_return_type&) noexcept = default;
-
-            constexpr insert_return_type(insert_return_type&&) noexcept = default;
-
-            /* ------------------------------------------Destructor------------------------------------------------- */
-            constexpr ~insert_return_type() noexcept = default;
-
-            /* -------------------------------------Overloaded Operators-------------------------------------------- */
-            constexpr insert_return_type& operator=(const insert_return_type&) noexcept = default;
-
-            constexpr insert_return_type& operator=(insert_return_type&&) noexcept = default;
-
-            [[nodiscard]] constexpr bool operator==(const insert_return_type&) const noexcept = default;
-
-            [[nodiscard]] constexpr auto operator<=>(const insert_return_type&) const noexcept = default;
         };
 
         /* ---------------------------------------------Constructors------------------------------------------------ */
@@ -2091,25 +2191,25 @@ namespace adt {
             requires(std::is_copy_constructible_v<value_type> && !std::is_same_v<iterator, const_iterator>) {
         
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, &pos_node).first);
+            return iterator(this->_insert(value, pos_node).first);
         }
 
         constexpr iterator insert(iterator pos, value_type&& value) noexcept
             requires(std::is_move_constructible_v<value_type> && !std::is_same_v<iterator, const_iterator>) {
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, &pos_node).first);
+            return iterator(this->_insert(value, pos_node).first);
         }
 
         constexpr iterator insert(const_iterator pos, const_reference value) noexcept
             requires(std::is_copy_constructible_v<value_type>) {
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, &pos_node).first);
+            return iterator(this->_insert(value, pos_node).first);
         }
 
         constexpr iterator insert(const_iterator pos, value_type&& value) noexcept
             requires(std::is_move_constructible_v<value_type>) {
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(value, &pos_node).first);
+            return iterator(this->_insert(value, pos_node).first);
         }
 
         template<std::input_iterator InputIt>
@@ -2135,7 +2235,7 @@ namespace adt {
             // If the node handle has a node pointing to nullptr...
             if (node.empty()) {
                 // Do NOT insert anything and return a default insert_return_type value
-                return insert_return_type();
+                return insert_return_type<iterator, node_type>();
             }
 
             // Otherwise, attempt to insert the node into the BST
@@ -2147,7 +2247,7 @@ namespace adt {
                 node._destroy();
             }
 
-            return insert_return_type(iterator(std::forward<_Node*>(pair.first)), pair.second, node);
+            return insert_return_type<iterator, node_type>(iterator(std::forward<_Node*>(pair.first)), pair.second, std::move(node));
         }
 
         constexpr iterator insert(const_iterator pos, node_type&& node) noexcept {
@@ -2161,7 +2261,7 @@ namespace adt {
 
             // Attempt to insert the node_handle's node into the BST at the current position
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            std::pair pair = this->_insert(node.node->value, &pos_node);
+            std::pair pair = this->_insert(node.node->value, pos_node);
 
             // If the node was successfully inserted...
             if (pair.second) {
@@ -2199,7 +2299,7 @@ namespace adt {
 
             // Otherwise, emplace the arguments at the iterator's position or as near as possible to it
             _Node* pos_node = const_cast<_Node*>(pos.node);
-            return iterator(this->_insert(std::forward<value_type>(args)..., &pos_node).first);
+            return iterator(this->_insert(std::forward<value_type>(args)..., pos_node).first);
         }
 
         constexpr iterator erase(iterator pos) noexcept
@@ -2265,14 +2365,27 @@ namespace adt {
             other.max_node = temp_node;
         }
 
-        constexpr node_type extract(const_iterator pos) noexcept {
+        constexpr node_type extract(const_iterator& pos) noexcept {
             node_type node_handle;
             if (pos.node == nullptr) {
                 return node_handle;
             }
 
             node_handle.node = const_cast<_Node*>(pos.node);
-            this->_remove(node_handle.node);
+            pos.node = this->_remove(node_handle.node);
+
+            return node_handle;
+        }
+
+        constexpr node_type extract(const_iterator&& pos) noexcept {
+            node_type node_handle;
+            if (pos.node == nullptr) {
+                return node_handle;
+            }
+
+            node_handle.node = const_cast<_Node*>(pos.node);
+            pos.node = this->_remove(node_handle.node);
+
             return node_handle;
         }
 
@@ -2280,7 +2393,6 @@ namespace adt {
 
         constexpr void merge(binary_search_tree&& source) noexcept {this->_merge(source); }
 
-        // TO-TEST
         constexpr iterator find(const_reference value) noexcept
             requires(std::is_copy_constructible_v<value_type>) {
             iterator it = this->begin();
@@ -2291,7 +2403,6 @@ namespace adt {
             return it;
         }
 
-        // TO-TEST
         [[nodiscard]] constexpr const_iterator find(const_reference value) const noexcept
             requires(std::is_copy_constructible_v<value_type>) {
             const_iterator cit = this->cbegin();
@@ -2302,64 +2413,130 @@ namespace adt {
             return cit;
         }
 
-        // TO-TEST
         [[nodiscard]] constexpr virtual bool contains(const_reference value) const noexcept override {
             return this->find(value) != this->end();
         }
 
-        // TO-DO
         constexpr std::pair<iterator, iterator> equal_range(const_reference value) noexcept
-            requires(std::is_copy_constructible_v<value_type>);
+            requires(std::is_copy_constructible_v<value_type>) {
+            iterator end = this->end();
 
-        // TO-DO
-        [[nodiscard]] constexpr std::pair<const_iterator, const_iterator> equal_range(const_reference value) const noexcept
-            requires(std::is_copy_constructible_v<value_type>);
-        
-        // TO-DO
-        constexpr iterator lower_bound(const_reference value) noexcept
-            requires(std::is_copy_constructible_v<value_type>);
+            if (this->root == nullptr) {
+                return std::make_pair(end, end);
+            }
 
-        // TO-DO
-        [[nodiscard]] constexpr const_iterator lower_bound(const_reference value) const noexcept
-            requires(std::is_copy_constructible_v<value_type>);
+            for (iterator it = this->begin(); it != this->end(); it++) {
+                if (it.node->value == value) {
+                    return std::make_pair(it, it + 1);
+                } else if (it.node->value > value) {
+                    return std::make_pair(it, it);
+                }
+            }
 
-        // TO-DO
-        constexpr iterator upper_bound(const_reference value) noexcept
-            requires(std::is_copy_constructible_v<value_type>);
-
-        // TO-DO
-        [[nodiscard]] constexpr const_iterator upper_bound(const_reference value) const noexcept
-            requires(std::is_copy_constructible_v<value_type>);
-
-        // FOR TESTING - REMOVE WHEN FINISHED
-        constexpr void print_adjacent_list() const noexcept {
-            this->_print_adjacent_list(this->root);
+            return std::make_pair(end, end);
         }
 
+        [[nodiscard]] constexpr std::pair<const_iterator, const_iterator> equal_range(const_reference value) const noexcept
+            requires(std::is_copy_constructible_v<value_type>) {
+            const_iterator cend = this->cend();
+
+            if (this->root == nullptr) {
+                return std::make_pair(cend, cend);
+            }
+
+            for (const_iterator cit = this->begin(); cit != this->end(); cit++) {
+                if (cit.node->value >= value) {
+                    return std::make_pair(cit, cit++);
+                }
+            }
+
+            return std::make_pair(cend, cend);
+        }
+
+        constexpr iterator lower_bound(const_reference value) noexcept
+            requires(std::is_copy_constructible_v<value_type>) {
+            if (this->root == nullptr) {
+                return this->end();
+            }
+
+            for (iterator it = this->begin(); it != this->end(); it++) {
+                if (it.node->value >= value) {
+                    return it;
+                }
+            }
+
+            return this->end();
+        }
+
+        [[nodiscard]] constexpr const_iterator lower_bound(const_reference value) const noexcept
+            requires(std::is_copy_constructible_v<value_type>) {
+            if (this->root == nullptr) {
+                return this->cend();
+            }
+
+            for (const_iterator cit = this->cbegin(); cit != this->cend(); cit++) {
+                if (cit.node->value >= value) {
+                    return cit;
+                }
+            }
+
+            return this->cend();
+        }
+
+        constexpr iterator upper_bound(const_reference value) noexcept
+            requires(std::is_copy_constructible_v<value_type>) {
+            if (this->root == nullptr) {
+                return this->end();
+            }
+
+            for (iterator it = this->begin(); it != this->end(); it++) {
+                if (it.node->value > value) {
+                    return it;
+                }
+            }
+
+            return this->end();
+        }
+
+        [[nodiscard]] constexpr const_iterator upper_bound(const_reference value) const noexcept
+            requires(std::is_copy_constructible_v<value_type>) {
+            if (this->root == nullptr) {
+                return this->cend();
+            }
+
+            for (const_iterator cit = this->cbegin(); cit != this->cend(); cit++) {
+                if (cit.node->value > value) {
+                    return cit;
+                }
+            }
+
+            return this->cend();
+        }
     };
-
-    
-
 } // adt
 
 namespace std {
 
-    // TO-TEST
     template<class T, class Allocator>
     constexpr void swap(adt::binary_search_tree<T, Allocator>& lhs, adt::binary_search_tree<T, Allocator>& rhs) noexcept {
         lhs.swap(rhs);
     }
 
-    // TO-TEST
     template<class T, class Allocator, class Predicate>
     constexpr typename adt::binary_search_tree<T, Allocator>::size_type erase_if(adt::binary_search_tree<T, Allocator>& bst, 
                                                                                  Predicate pred) noexcept
         requires(std::predicate<Predicate, T>) {
         typename adt::binary_search_tree<T, Allocator>::size_type erase_count = 0;
 
-        
-    }
+        for (auto it = bst.begin(); it != bst.end(); it++) {
+            if (pred(*it)) {
+                bst.erase(it);
+                erase_count++;
+            }
+        }
 
+        return erase_count;
+    }
 
 } // std
 

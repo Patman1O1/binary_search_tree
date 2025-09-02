@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstring>
 #include <forward_list>
+#include <list>
 
 #include "binary_search_tree.hpp"
 
@@ -69,11 +70,8 @@ concept set_iterator = std::same_as<T, typename std::set<value_type, allocator_t
 					   std::same_as<T, typename std::set<value_type, allocator_type>::const_reverse_iterator> ||
 					   std::same_as<T, typename std::set<value_type, allocator_type>::reverse_iterator>;
 
-template<set_iterator Iterator>
-std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> set_range);
-
-template<bst_iterator Iterator>
-std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> bst_range);
+template<std::input_iterator Iterator>
+std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> range);
 
 int set(int argc, char** argv, const std::initializer_list<value_type>& values);
 
@@ -107,30 +105,16 @@ int main(int argc, char* argv[]) {
 	}
 }
 
-template<set_iterator Iterator>
-std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> set_range) {
-	if (std::distance(set_range.first, set_range.second) <= 0) {
-		throw std::invalid_argument("\"set_range.second\" must be reachable from \"set_range.first\"");
+template<std::input_iterator Iterator>
+std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> range) {
+	if (std::distance(range.first, range.second) <= 0) {
+		os << "{}";
+		return os;
 	}
 
 	os << "{ ";
-	for (Iterator it = set_range.first; it != set_range.second; it++) {
-		os << *it << ' ';
-	}
-	os << '}';
-
-	return os;
-}
-
-template<bst_iterator Iterator>
-std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> bst_range) {
-	if (std::distance(bst_range.first, bst_range.second) <= 0) {
-		throw std::invalid_argument("\"bst_range.first\" must be reachable from \"bst_range.second\"");
-	}
-
-	os << "{ ";
-	for (Iterator it = bst_range.first; it != bst_range.second; it++) {
-		os << *it << ' ';
+	for (Iterator it = range.first; it != range.second; it++) {
+		os << *it << ", ";
 	}
 	os << '}';
 
@@ -138,12 +122,14 @@ std::ostream& operator<<(std::ostream& os, std::pair<Iterator, Iterator> bst_ran
 }
 
 int set(int argc, char** argv, const std::initializer_list<value_type>& values) {
-	std::set<value_type> set = values;
-	std::set<value_type>::iterator it;
-
 	try {
-		it = set.erase(set.begin(), set.end());
-		std::cout << (it == set.end()) << std::endl;
+		std::set<value_type> set = values;
+		std::pair<std::set<value_type>::iterator, std::set<value_type>::iterator> pair;
+
+		pair = set.equal_range(-1);
+
+		std::cout << "First: " << *pair.first << "\nSecond: " << *pair.second << std::endl;
+
 		return 0;
 	} catch (std::runtime_error e) {
 		std::cout << e.what() << "\nTerminating...\n";
@@ -158,16 +144,14 @@ int set(int argc, char** argv, const std::initializer_list<value_type>& values) 
 }
 
 int binary_search_tree(int argc, char** argv, const std::initializer_list<value_type>& values) {
-	adt::binary_search_tree<value_type> bst = values;
-
-	auto cit1 = bst.cbegin(adt::bst_traversals::preorder) + (values.size() - 1);
-	adt::binary_search_tree<value_type>::const_iterator cit2(bst, adt::bst_traversals::preorder);
-	cit2 += values.size() - 1;
-
-
-
 	try {
-		
+		adt::binary_search_tree<value_type> bst = values;
+		adt::binary_search_tree<value_type>::iterator bst_it;
+		std::list<value_type> values_matcher(values.begin(), values.end());
+		std::size_t size_matcher = values.size();
+
+		std::cout << std::make_pair(bst.begin(), bst.end()) << std::endl;
+
 		return 0;
 	} catch (std::runtime_error e) {
 		std::cout << e.what() << "\nTerminating...\n";
